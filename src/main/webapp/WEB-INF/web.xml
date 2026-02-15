@@ -4,7 +4,7 @@
          xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd"
          version="6.0">
 
-    <display-name>Employee Management v2 (DB2)</display-name>
+    <display-name>Employee Management v3 (JPA/Hibernate, DB2)</display-name>
 
     <resource-ref>
         <description>DB2 DataSource for Employee and Hobby</description>

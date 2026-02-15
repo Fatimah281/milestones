@@ -15,7 +15,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 //</editor-fold>
 
-@WebServlet(urlPatterns = {"/api/v2/employees/*", "/api/v2/employee/*" })
+@WebServlet(urlPatterns = {"/api/v3/employees/*", "/api/v3/employee/*"})
 public class EmployeeServlet extends HttpServlet {
 
     //<editor-fold desc="Constants">
@@ -34,8 +34,8 @@ public class EmployeeServlet extends HttpServlet {
         try {
             employeeService = new EmployeeService();
         } catch (Exception e) {
-            LOG.log(Level.SEVERE, "Failed to initialize EmployeeService (JNDI/DataSource)", e);
-            throw new ServletException("DataSource not available", e);
+            LOG.log(Level.SEVERE, "Failed to initialize EmployeeService (JPA/EntityManagerFactory)", e);
+            throw new ServletException("JPA not available", e);
         }
     }
     //</editor-fold>
@@ -62,8 +62,8 @@ public class EmployeeServlet extends HttpServlet {
                 return;
             }
 
-            int id = Integer.parseInt(parts[1]);
-            Employee employee = employeeService.findById(id);
+            long id = Long.parseLong(parts[1]);
+            Employee employee = employeeService.findById(id).orElse(null);
             if (employee == null) {
                 sendError(response, HttpServletResponse.SC_NOT_FOUND, "Employee not found");
                 return;
@@ -97,7 +97,7 @@ public class EmployeeServlet extends HttpServlet {
                 sendError(response, HttpServletResponse.SC_BAD_REQUEST, "Invalid JSON body");
                 return;
             }
-            Employee saved = employeeService.saveEmployeeWithHobbies(employee);
+            Employee saved = employeeService.save(employee);
             response.setStatus(HttpServletResponse.SC_CREATED);
             String location = request.getRequestURL().append("/").append(saved.getId()).toString();
             response.setHeader("Location", location);
@@ -127,15 +127,15 @@ public class EmployeeServlet extends HttpServlet {
         }
 
         try {
-            int id = Integer.parseInt(parts[1]);
+            long id = Long.parseLong(parts[1]);
             Employee employee = JsonUtil.fromJson(request.getReader(), Employee.class);
             if (employee == null) {
                 sendError(response, HttpServletResponse.SC_BAD_REQUEST, "Invalid JSON body");
                 return;
             }
             employee.setId(id);
-            int updated = employeeService.update(employee);
-            if (updated == 0) {
+            Employee updated = employeeService.update(employee);
+            if (updated == null) {
                 sendError(response, HttpServletResponse.SC_NOT_FOUND, "Employee not found");
                 return;
             }
@@ -170,9 +170,9 @@ public class EmployeeServlet extends HttpServlet {
         }
 
         try {
-            int id = Integer.parseInt(parts[1]);
-            int deleted = employeeService.delete(id);
-            if (deleted == 0) {
+            long id = Long.parseLong(parts[1]);
+            boolean deleted = employeeService.deleteById(id);
+            if (!deleted) {
                 sendError(response, HttpServletResponse.SC_NOT_FOUND, "Employee not found");
                 return;
             }

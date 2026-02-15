@@ -1,115 +1,184 @@
 package service;
 //<editor-fold desc="Imports">
-import dao.EmployeeDao;
-import dao.HobbyDao;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityTransaction;
 import model.Employee;
 import model.Hobby;
-import util.DataSourceProvider;
+import repository.EmployeeRepository;
+import repository.HobbyRepository;
+import util.JpaUtil;
 
-import javax.naming.NamingException;
-import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.List;
+import java.util.Optional;
 //</editor-fold>
 
 public class EmployeeService {
 
     //<editor-fold desc="Fields">
-    private final DataSource dataSource;
-    private final EmployeeDao employeeDao;
-    private final HobbyDao hobbyDao;
-    //</editor-fold>
-
-    //<editor-fold desc="Constructors">
-    public EmployeeService() throws NamingException {
-        this.dataSource = DataSourceProvider.getDataSource();
-        this.employeeDao = new EmployeeDao(dataSource);
-        this.hobbyDao = new HobbyDao(dataSource);
-    }
+    private final jakarta.persistence.EntityManagerFactory emf = JpaUtil.getEntityManagerFactory();
     //</editor-fold>
 
     //<editor-fold desc="Public Methods">
-    public Employee saveEmployeeWithHobbies(Employee employee) throws SQLException {
-        employee.setId(null);
-        normalizeEmployee(employee);
-        normalizeHobbies(employee.getHobbies());
-        Connection conn = dataSource.getConnection();
+    public Employee save(Employee employee) {
+        EntityManager em = emf.createEntityManager();
+        EntityTransaction tx = em.getTransaction();
         try {
-            conn.setAutoCommit(false);
-            int employeeId = employeeDao.insert(conn, employee);
-            employee.setId(employeeId);
-            List<Hobby> hobbies = employee.getHobbies();
-            if (hobbies != null && !hobbies.isEmpty()) {
-                hobbyDao.insertAll(conn, employeeId, hobbies);
+            tx.begin();
+            normalizeEmployee(employee);
+            if (employee.getHobbies() != null) {
+                for (Hobby h : employee.getHobbies()) {
+                    if (h != null) {
+                        h.setEmployee(employee);
+                    }
+                }
             }
-            conn.commit();
-            return employee;
-        } catch (SQLException e) {
-            rollback(conn);
+            Employee saved = new EmployeeRepository(em).save(employee);
+            tx.commit();
+            return saved;
+        } catch (Exception e) {
+            if (tx.isActive()) {
+                tx.rollback();
+            }
             throw e;
         } finally {
-            resetAutoCommitAndClose(conn);
+            em.close();
         }
     }
 
-    public Employee findById(int id) throws SQLException {
-        try (Connection conn = dataSource.getConnection()) {
-            Employee employee = employeeDao.findById(conn, id);
-            if (employee != null) {
-                List<Hobby> hobbies = hobbyDao.findByEmployeeId(conn, id);
-                employee.setHobbies(hobbies);
-            }
-            return employee;
+    public Optional<Employee> findById(Long id) {
+        EntityManager em = emf.createEntityManager();
+        try {
+            EmployeeRepository repo = new EmployeeRepository(em);
+            return repo.findById(id);
+        } finally {
+            em.close();
         }
     }
 
-    public List<Employee> findAll() throws SQLException {
-        try (Connection conn = dataSource.getConnection()) {
-            List<Employee> employees = employeeDao.findAll(conn);
-            for (Employee e : employees) {
-                List<Hobby> hobbies = hobbyDao.findByEmployeeId(conn, e.getId());
-                e.setHobbies(hobbies);
-            }
-            return employees;
+    public List<Employee> findAll() {
+        EntityManager em = emf.createEntityManager();
+        try {
+            EmployeeRepository repo = new EmployeeRepository(em);
+            return repo.findAll();
+        } finally {
+            em.close();
         }
     }
 
-    public int update(Employee employee) throws SQLException {
+    public Employee update(Employee employee) {
         if (employee.getId() == null) {
-            throw new SQLException("Employee id is required for update.");
+            throw new IllegalArgumentException("Employee id is required for update.");
         }
-        Connection conn = dataSource.getConnection();
+        EntityManager em = emf.createEntityManager();
+        EntityTransaction tx = em.getTransaction();
         try {
-            conn.setAutoCommit(false);
-            employeeDao.update(conn, employee);
-            hobbyDao.deleteByEmployeeId(conn, employee.getId());
-            if (employee.getHobbies() != null && !employee.getHobbies().isEmpty()) {
-                hobbyDao.insertAll(conn, employee.getId(), employee.getHobbies());
+            tx.begin();
+            normalizeEmployee(employee);
+            EmployeeRepository employeeRepo = new EmployeeRepository(em);
+            HobbyRepository hobbyRepo = new HobbyRepository(em);
+            Employee managed = employeeRepo.findById(employee.getId()).orElse(null);
+            if (managed == null) {
+                tx.rollback();
+                return null;
             }
-            conn.commit();
-            return 1;
-        } catch (SQLException e) {
-            rollback(conn);
+            managed.setName(employee.getName());
+            managed.setGender(employee.getGender());
+            managed.setDateOfBirth(employee.getDateOfBirth());
+            managed.setPhoneNumber(employee.getPhoneNumber());
+            managed.getHobbies().clear();
+            if (employee.getHobbies() != null) {
+                for (Hobby h : employee.getHobbies()) {
+                    if (h != null) {
+                        h.setEmployee(managed);
+                        hobbyRepo.save(h);
+                        managed.getHobbies().add(h);
+                    }
+                }
+            }
+            employeeRepo.update(managed);
+            tx.commit();
+            return managed;
+        } catch (Exception e) {
+            if (tx.isActive()) {
+                tx.rollback();
+            }
             throw e;
         } finally {
-            resetAutoCommitAndClose(conn);
+            em.close();
         }
     }
 
-    public int delete(int id) throws SQLException {
-        Connection conn = dataSource.getConnection();
+    public boolean delete(Employee employee) {
+        if (employee == null || employee.getId() == null) {
+            return false;
+        }
+        return deleteById(employee.getId());
+    }
+
+    public boolean deleteById(Long id) {
+        EntityManager em = emf.createEntityManager();
+        EntityTransaction tx = em.getTransaction();
         try {
-            conn.setAutoCommit(false);
-            hobbyDao.deleteByEmployeeId(conn, id);
-            int rows = employeeDao.delete(conn, id);
-            conn.commit();
-            return rows;
-        } catch (SQLException e) {
-            rollback(conn);
+            tx.begin();
+            EmployeeRepository repo = new EmployeeRepository(em);
+            boolean removed = repo.deleteById(id);
+            tx.commit();
+            return removed;
+        } catch (Exception e) {
+            if (tx.isActive()) {
+                tx.rollback();
+            }
             throw e;
         } finally {
-            resetAutoCommitAndClose(conn);
+            em.close();
+        }
+    }
+
+    public void assignHobby(Employee employee, Hobby hobby) {
+        EntityManager em = emf.createEntityManager();
+        EntityTransaction tx = em.getTransaction();
+        try {
+            tx.begin();
+            EmployeeRepository employeeRepo = new EmployeeRepository(em);
+            HobbyRepository hobbyRepo = new HobbyRepository(em);
+            Employee managedEmp = employeeRepo.findById(employee.getId()).orElseThrow();
+            Hobby managedHobby = hobby.getId() != null
+                    ? hobbyRepo.findById(hobby.getId()).orElse(hobby)
+                    : hobby;
+            if (managedHobby.getId() == null) {
+                managedHobby.setEmployee(managedEmp);
+                hobbyRepo.save(managedHobby);
+            }
+            employeeRepo.assignHobby(managedEmp, managedHobby);
+            tx.commit();
+        } catch (Exception e) {
+            if (tx.isActive()) {
+                tx.rollback();
+            }
+            throw e;
+        } finally {
+            em.close();
+        }
+    }
+
+    public void removeHobby(Employee employee, Hobby hobby) {
+        EntityManager em = emf.createEntityManager();
+        EntityTransaction tx = em.getTransaction();
+        try {
+            tx.begin();
+            EmployeeRepository employeeRepo = new EmployeeRepository(em);
+            HobbyRepository hobbyRepo = new HobbyRepository(em);
+            Employee managedEmp = employeeRepo.findById(employee.getId()).orElseThrow();
+            Hobby managedHobby = hobbyRepo.findById(hobby.getId()).orElseThrow();
+            employeeRepo.removeHobby(managedEmp, managedHobby);
+            tx.commit();
+        } catch (Exception e) {
+            if (tx.isActive()) {
+                tx.rollback();
+            }
+            throw e;
+        } finally {
+            em.close();
         }
     }
     //</editor-fold>
@@ -121,37 +190,6 @@ public class EmployeeService {
         employee.setGender(employee.getGender() != null ? employee.getGender() : "");
         employee.setDateOfBirth(employee.getDateOfBirth() != null ? employee.getDateOfBirth() : "");
         employee.setPhoneNumber(employee.getPhoneNumber() != null ? employee.getPhoneNumber() : "");
-    }
-
-    private static void normalizeHobbies(List<Hobby> hobbies) {
-        if (hobbies == null) return;
-        for (Hobby h : hobbies) {
-            if (h != null && h.getName() == null) {
-                h.setName("");
-            }
-        }
-    }
-
-    private static void rollback(Connection conn) {
-        if (conn != null) {
-            try {
-                conn.rollback();
-            } catch (SQLException ignored) {
-            }
-        }
-    }
-
-    private static void resetAutoCommitAndClose(Connection conn) {
-        if (conn != null) {
-            try {
-                conn.setAutoCommit(true);
-            } catch (SQLException ignored) {
-            }
-            try {
-                conn.close();
-            } catch (SQLException ignored) {
-            }
-        }
     }
     //</editor-fold>
 }

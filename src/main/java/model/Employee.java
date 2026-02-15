@@ -1,25 +1,52 @@
 package model;
 //<editor-fold desc="Imports">
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+
 import java.util.ArrayList;
 import java.util.List;
 //</editor-fold>
+
+@Entity
+@Table(name = "EMPLOYEE", schema = "EMP_HOB")
 public class Employee {
 
     //<editor-fold desc="Fields">
-    private Integer id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "ID")
+    private Long id;
+
+    @Column(name = "NAME", nullable = false, length = 255)
     private String name;
+
+    @Column(name = "GENDER", length = 50)
     private String gender;
+
+    @Column(name = "DATE_OF_BIRTH", length = 20)
     private String dateOfBirth;
+
+    @Column(name = "PHONE_NUMBER", length = 50)
     private String phoneNumber;
-    private List<Hobby> hobbies;
+
+    @OneToMany(mappedBy = "employee", fetch = FetchType.EAGER, cascade = { CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE }, orphanRemoval = true)
+    @JsonManagedReference
+    private List<Hobby> hobbies = new ArrayList<>();
     //</editor-fold>
 
     //<editor-fold desc="Constructors">
     public Employee() {
-        this.hobbies = new ArrayList<>();
     }
 
-    public Employee(Integer id, String name, String gender, String dateOfBirth, String phoneNumber, List<Hobby> hobbies) {
+    public Employee(Long id, String name, String gender, String dateOfBirth, String phoneNumber, List<Hobby> hobbies) {
         this.id = id;
         this.name = name;
         this.gender = gender;
@@ -30,11 +57,11 @@ public class Employee {
     //</editor-fold>
 
     //<editor-fold desc="Getters and Setters">
-    public Integer getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(Integer id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
