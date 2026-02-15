@@ -1,38 +1,40 @@
 package model;
 //<editor-fold desc="Imports">
+import java.util.ArrayList;
 import java.util.List;
 //</editor-fold>
-
 public class Employee {
+
     //<editor-fold desc="Fields">
-    private Integer  id;
+    private Integer id;
     private String name;
     private String gender;
     private String dateOfBirth;
     private String phoneNumber;
-    private List<String> hobbies;
+    private List<Hobby> hobbies;
     //</editor-fold>
 
     //<editor-fold desc="Constructors">
-    public Employee() {}
+    public Employee() {
+        this.hobbies = new ArrayList<>();
+    }
 
-    public Employee(Integer id, String name, String gender, String dateOfBirth, String phoneNumber, List<String> hobbies) {
+    public Employee(Integer id, String name, String gender, String dateOfBirth, String phoneNumber, List<Hobby> hobbies) {
         this.id = id;
         this.name = name;
         this.gender = gender;
         this.dateOfBirth = dateOfBirth;
         this.phoneNumber = phoneNumber;
-        this.hobbies = hobbies;
+        this.hobbies = hobbies != null ? hobbies : new ArrayList<>();
     }
     //</editor-fold>
 
     //<editor-fold desc="Getters and Setters">
-
-    public int getId() {
+    public Integer getId() {
         return id;
     }
 
-    public void setId(int id) {
+    public void setId(Integer id) {
         this.id = id;
     }
 
@@ -68,12 +70,12 @@ public class Employee {
         this.phoneNumber = phoneNumber;
     }
 
-    public List<String> getHobbies() {
+    public List<Hobby> getHobbies() {
         return hobbies;
     }
 
-    public void setHobbies(List<String> hobbies) {
-        this.hobbies = hobbies;
+    public void setHobbies(List<Hobby> hobbies) {
+        this.hobbies = hobbies != null ? hobbies : new ArrayList<>();
     }
     //</editor-fold>
 }
