@@ -4,6 +4,8 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
 import model.Employee;
 import model.Hobby;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import repository.EmployeeRepository;
 import repository.HobbyRepository;
 import util.JpaUtil;
@@ -15,6 +17,7 @@ import java.util.Optional;
 public class EmployeeService {
 
     //<editor-fold desc="Fields">
+    private static final Logger LOG = LogManager.getLogger(EmployeeService.class);
     private final jakarta.persistence.EntityManagerFactory emf = JpaUtil.getEntityManagerFactory();
     //</editor-fold>
 
@@ -34,11 +37,13 @@ public class EmployeeService {
             }
             Employee saved = new EmployeeRepository(em).save(employee);
             tx.commit();
+            LOG.info("Saved employee id={}, name={}", saved.getId(), saved.getName());
             return saved;
         } catch (Exception e) {
             if (tx.isActive()) {
                 tx.rollback();
             }
+            LOG.error("Failed to save employee name={}", employee != null ? employee.getName() : null, e);
             throw e;
         } finally {
             em.close();
@@ -97,11 +102,13 @@ public class EmployeeService {
             }
             employeeRepo.update(managed);
             tx.commit();
+            LOG.info("Updated employee id={}, name={}", managed.getId(), managed.getName());
             return managed;
         } catch (Exception e) {
             if (tx.isActive()) {
                 tx.rollback();
             }
+            LOG.error("Failed to update employee id={}", employee != null ? employee.getId() : null, e);
             throw e;
         } finally {
             em.close();
@@ -123,11 +130,15 @@ public class EmployeeService {
             EmployeeRepository repo = new EmployeeRepository(em);
             boolean removed = repo.deleteById(id);
             tx.commit();
+            if (removed) {
+                LOG.info("Deleted employee id={}", id);
+            }
             return removed;
         } catch (Exception e) {
             if (tx.isActive()) {
                 tx.rollback();
             }
+            LOG.error("Failed to delete employee id={}", id, e);
             throw e;
         } finally {
             em.close();

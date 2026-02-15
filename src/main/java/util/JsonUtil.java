@@ -22,7 +22,7 @@ public final class JsonUtil {
     //</editor-fold>
 
     //<editor-fold desc="Public Methods">
-    public static <T> T fromJson(Reader reader, Class<T> clazz) throws IOException {
+    public static String readBodyAsString(Reader reader) throws IOException {
         StringBuilder json = new StringBuilder();
         try (BufferedReader br = reader instanceof BufferedReader ? (BufferedReader) reader : new BufferedReader(reader)) {
             String line;
@@ -30,7 +30,15 @@ public final class JsonUtil {
                 json.append(line);
             }
         }
-        return MAPPER.readValue(json.toString(), clazz);
+        return json.toString();
+    }
+
+    public static <T> T fromJson(Reader reader, Class<T> clazz) throws IOException {
+        return MAPPER.readValue(readBodyAsString(reader), clazz);
+    }
+
+    public static <T> T fromJson(String json, Class<T> clazz) throws IOException {
+        return MAPPER.readValue(json, clazz);
     }
 
     public static String toJson(Object object) throws IOException {
