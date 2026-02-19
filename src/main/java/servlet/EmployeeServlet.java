@@ -15,7 +15,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 //</editor-fold>
 
-@WebServlet(urlPatterns = {"/api/v3/employees/*", "/api/v3/employee/*"})
+@WebServlet(urlPatterns = {"/api/v3/employees/*", "/api/v3/employee/*"}, loadOnStartup = 1)
 public class EmployeeServlet extends HttpServlet {
 
     //<editor-fold desc="Constants">
@@ -50,7 +50,12 @@ public class EmployeeServlet extends HttpServlet {
 
         try {
             if (pathInfo == null || pathInfo.equals("/")) {
-                List<Employee> employees = employeeService.findAll();
+                int offset = parseIntOrDefault(request.getParameter("offset"), 0);
+                int limit = parseIntOrDefault(request.getParameter("limit"), 100);
+                offset = Math.max(0, offset);
+                limit = clamp(limit, 1, 500);
+
+                List<?> employees = employeeService.findAllSummaries(offset, limit);
                 response.setStatus(HttpServletResponse.SC_OK);
                 response.getWriter().write(JsonUtil.toJson(employees));
                 return;
@@ -63,7 +68,7 @@ public class EmployeeServlet extends HttpServlet {
             }
 
             long id = Long.parseLong(parts[1]);
-            Employee employee = employeeService.findById(id).orElse(null);
+            var employee = employeeService.findByIdDto(id).orElse(null);
             if (employee == null) {
                 sendError(response, HttpServletResponse.SC_NOT_FOUND, "Employee not found");
                 return;
@@ -99,7 +104,7 @@ public class EmployeeServlet extends HttpServlet {
             }
             Employee saved = employeeService.save(employee);
             response.setStatus(HttpServletResponse.SC_CREATED);
-            String location = request.getRequestURL().append("/").append(saved.getId()).toString();
+            String location = buildLocationUrl(request, saved.getId());
             response.setHeader("Location", location);
         } catch (Exception e) {
             LOG.log(Level.SEVERE, "POST /employees failed", e);
@@ -140,7 +145,7 @@ public class EmployeeServlet extends HttpServlet {
                 return;
             }
             response.setStatus(HttpServletResponse.SC_NO_CONTENT);
-            String location = request.getRequestURL().toString();
+            String location = buildLocationUrl(request, id);
             response.setHeader("Location", location);
         } catch (NumberFormatException e) {
             sendError(response, HttpServletResponse.SC_BAD_REQUEST, "Invalid ID format");
@@ -195,6 +200,28 @@ public class EmployeeServlet extends HttpServlet {
     private static String escapeJson(String s) {
         if (s == null) return "";
         return s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
+    }
+
+    private static String buildLocationUrl(HttpServletRequest request, long id) {
+        return request.getScheme() + "://"
+            + request.getServerName() + ":"
+            + request.getServerPort()
+            + "/servlet_employee/api/v3/employee/" + id;
+    }
+
+    private static int parseIntOrDefault(String value, int defaultValue) {
+        if (value == null || value.isBlank()) {
+            return defaultValue;
+        }
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    private static int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
     }
     //</editor-fold>
 }

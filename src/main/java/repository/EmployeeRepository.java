@@ -2,7 +2,6 @@ package repository;
 //<editor-fold desc="Imports">
 import jakarta.persistence.EntityManager;
 import model.Employee;
-import model.Hobby;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,9 +32,26 @@ public class EmployeeRepository {
         return Optional.ofNullable(e);
     }
 
-    @SuppressWarnings("unchecked")
-    public List<Employee> findAll() {
-        return em.createQuery("SELECT e FROM Employee e ORDER BY e.id", Employee.class).getResultList();
+    public List<Employee> findAll(int offset, int limit) {
+        return em.createQuery("SELECT e FROM Employee e ORDER BY e.id", Employee.class)
+            .setFirstResult(Math.max(0, offset))
+            .setMaxResults(Math.max(1, limit))
+            .getResultList();
+    }
+
+    public Optional<Employee> findByIdWithHobbies(Long id) {
+        if (id == null) {
+            return Optional.empty();
+        }
+
+        List<Employee> list = em.createQuery(
+                "SELECT DISTINCT e FROM Employee e LEFT JOIN FETCH e.hobbies WHERE e.id = :id",
+                Employee.class
+            )
+            .setParameter("id", id)
+            .getResultList();
+
+        return list.isEmpty() ? Optional.empty() : Optional.of(list.get(0));
     }
 
     public Employee update(Employee e) {
@@ -50,24 +66,6 @@ public class EmployeeRepository {
         Optional<Employee> existing = findById(id);
         existing.ifPresent(this::delete);
         return existing.isPresent();
-    }
-
-    public void assignHobby(Employee employee, Hobby hobby) {
-        Employee managed = em.merge(employee);
-        Hobby managedHobby = em.merge(hobby);
-        if (!managed.getHobbies().contains(managedHobby)) {
-            managed.getHobbies().add(managedHobby);
-            managedHobby.setEmployee(managed);
-        }
-    }
-
-    /**
-     * Removes a hobby from an employee (one-to-many: removes from collection; orphanRemoval deletes the hobby).
-     */
-    public void removeHobby(Employee employee, Hobby hobby) {
-        Employee managed = em.merge(employee);
-        Hobby managedHobby = em.merge(hobby);
-        managed.getHobbies().remove(managedHobby);
     }
     //</editor-fold>
 }

@@ -1,5 +1,7 @@
 package service;
 //<editor-fold desc="Imports">
+import DTO.EmployeeDto;
+import DTO.HobbyDto;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
 import model.Employee;
@@ -10,6 +12,7 @@ import util.JpaUtil;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 //</editor-fold>
 
 public class EmployeeService {
@@ -55,11 +58,23 @@ public class EmployeeService {
         }
     }
 
-    public List<Employee> findAll() {
+    public Optional<EmployeeDto> findByIdDto(Long id) {
         EntityManager em = emf.createEntityManager();
         try {
             EmployeeRepository repo = new EmployeeRepository(em);
-            return repo.findAll();
+            return repo.findByIdWithHobbies(id).map(EmployeeService::toDetailsDto);
+        } finally {
+            em.close();
+        }
+    }
+
+    public List<EmployeeDto> findAllSummaries(int offset, int limit) {
+        EntityManager em = emf.createEntityManager();
+        try {
+            EmployeeRepository repo = new EmployeeRepository(em);
+            return repo.findAll(offset, limit).stream()
+                .map(EmployeeService::toSummaryDto)
+                .collect(Collectors.toList());
         } finally {
             em.close();
         }
@@ -133,54 +148,6 @@ public class EmployeeService {
             em.close();
         }
     }
-
-    public void assignHobby(Employee employee, Hobby hobby) {
-        EntityManager em = emf.createEntityManager();
-        EntityTransaction tx = em.getTransaction();
-        try {
-            tx.begin();
-            EmployeeRepository employeeRepo = new EmployeeRepository(em);
-            HobbyRepository hobbyRepo = new HobbyRepository(em);
-            Employee managedEmp = employeeRepo.findById(employee.getId()).orElseThrow();
-            Hobby managedHobby = hobby.getId() != null
-                    ? hobbyRepo.findById(hobby.getId()).orElse(hobby)
-                    : hobby;
-            if (managedHobby.getId() == null) {
-                managedHobby.setEmployee(managedEmp);
-                hobbyRepo.save(managedHobby);
-            }
-            employeeRepo.assignHobby(managedEmp, managedHobby);
-            tx.commit();
-        } catch (Exception e) {
-            if (tx.isActive()) {
-                tx.rollback();
-            }
-            throw e;
-        } finally {
-            em.close();
-        }
-    }
-
-    public void removeHobby(Employee employee, Hobby hobby) {
-        EntityManager em = emf.createEntityManager();
-        EntityTransaction tx = em.getTransaction();
-        try {
-            tx.begin();
-            EmployeeRepository employeeRepo = new EmployeeRepository(em);
-            HobbyRepository hobbyRepo = new HobbyRepository(em);
-            Employee managedEmp = employeeRepo.findById(employee.getId()).orElseThrow();
-            Hobby managedHobby = hobbyRepo.findById(hobby.getId()).orElseThrow();
-            employeeRepo.removeHobby(managedEmp, managedHobby);
-            tx.commit();
-        } catch (Exception e) {
-            if (tx.isActive()) {
-                tx.rollback();
-            }
-            throw e;
-        } finally {
-            em.close();
-        }
-    }
     //</editor-fold>
 
     //<editor-fold desc="Private Methods">
@@ -190,6 +157,42 @@ public class EmployeeService {
         employee.setGender(employee.getGender() != null ? employee.getGender() : "");
         employee.setDateOfBirth(employee.getDateOfBirth() != null ? employee.getDateOfBirth() : "");
         employee.setPhoneNumber(employee.getPhoneNumber() != null ? employee.getPhoneNumber() : "");
+    }
+
+    private static EmployeeDto toSummaryDto(Employee employee) {
+        if (employee == null) {
+            return null;
+        }
+        return new EmployeeDto(
+            employee.getId(),
+            employee.getName(),
+            employee.getGender(),
+            employee.getDateOfBirth(),
+            employee.getPhoneNumber(),
+            null
+        );
+    }
+
+    private static EmployeeDto toDetailsDto(Employee employee) {
+        if (employee == null) {
+            return null;
+        }
+
+        List<HobbyDto> hobbies = employee.getHobbies() == null
+            ? List.of()
+            : employee.getHobbies().stream()
+                .filter(h -> h != null)
+                .map(h -> new HobbyDto(h.getId(), h.getName()))
+                .collect(Collectors.toList());
+
+        return new EmployeeDto(
+            employee.getId(),
+            employee.getName(),
+            employee.getGender(),
+            employee.getDateOfBirth(),
+            employee.getPhoneNumber(),
+            hobbies
+        );
     }
     //</editor-fold>
 }

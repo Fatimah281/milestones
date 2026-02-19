@@ -2,7 +2,7 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.milestones</groupId>
-  <artifactId>servlet_employee</artifactId>
+  <artifactId>servlet_employee_v3</artifactId>
   <packaging>war</packaging>
   <version>3.0-SNAPSHOT</version>
   <name>servlet_employee_v3 - Employee Management with JPA/Hibernate and DB2</name>
@@ -44,16 +44,9 @@
       <artifactId>jackson-databind</artifactId>
       <version>2.16.1</version>
     </dependency>
-    <!-- Test -->
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.13.2</version>
-      <scope>test</scope>
-    </dependency>
   </dependencies>
   <build>
-    <finalName>servlet_employee</finalName>
+    <finalName>servlet_employee_v3</finalName>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

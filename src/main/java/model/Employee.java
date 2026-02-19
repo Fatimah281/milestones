@@ -1,15 +1,7 @@
 package model;
 //<editor-fold desc="Imports">
 import com.fasterxml.jackson.annotation.JsonManagedReference;
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,7 +29,7 @@ public class Employee {
     @Column(name = "PHONE_NUMBER", length = 50)
     private String phoneNumber;
 
-    @OneToMany(mappedBy = "employee", fetch = FetchType.EAGER, cascade = { CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE }, orphanRemoval = true)
+    @OneToMany(mappedBy = "employee", fetch = FetchType.LAZY, cascade = { CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE }, orphanRemoval = true)
     @JsonManagedReference
     private List<Hobby> hobbies = new ArrayList<>();
     //</editor-fold>
