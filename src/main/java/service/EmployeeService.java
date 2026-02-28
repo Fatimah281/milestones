@@ -2,12 +2,14 @@ package service;
 //<editor-fold desc="Imports">
 import DTO.EmployeeDto;
 import DTO.HobbyDto;
+import dao.IEmployeeDao;
+import dao.IGenericDao;
+import dao.jpa.JpaEmployeeDao;
+import dao.jpa.JpaGenericDao;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityTransaction;
 import model.Employee;
 import model.Hobby;
-import repository.EmployeeRepository;
-import repository.HobbyRepository;
 import util.JpaUtil;
 
 import java.util.List;
@@ -35,7 +37,8 @@ public class EmployeeService {
                     }
                 }
             }
-            Employee saved = new EmployeeRepository(em).save(employee);
+            IEmployeeDao employeeDao = new JpaEmployeeDao(em);
+            Employee saved = employeeDao.save(employee);
             tx.commit();
             return saved;
         } catch (Exception e) {
@@ -51,8 +54,8 @@ public class EmployeeService {
     public Optional<Employee> findById(Long id) {
         EntityManager em = emf.createEntityManager();
         try {
-            EmployeeRepository repo = new EmployeeRepository(em);
-            return repo.findById(id);
+            IEmployeeDao employeeDao = new JpaEmployeeDao(em);
+            return employeeDao.findById(id);
         } finally {
             em.close();
         }
@@ -61,8 +64,8 @@ public class EmployeeService {
     public Optional<EmployeeDto> findByIdDto(Long id) {
         EntityManager em = emf.createEntityManager();
         try {
-            EmployeeRepository repo = new EmployeeRepository(em);
-            return repo.findByIdWithHobbies(id).map(EmployeeService::toDetailsDto);
+            IEmployeeDao employeeDao = new JpaEmployeeDao(em);
+            return employeeDao.findByIdWithHobbies(id).map(EmployeeService::toDetailsDto);
         } finally {
             em.close();
         }
@@ -71,8 +74,8 @@ public class EmployeeService {
     public List<EmployeeDto> findAllSummaries(int offset, int limit) {
         EntityManager em = emf.createEntityManager();
         try {
-            EmployeeRepository repo = new EmployeeRepository(em);
-            return repo.findAll(offset, limit).stream()
+            IEmployeeDao employeeDao = new JpaEmployeeDao(em);
+            return employeeDao.findAll(offset, limit).stream()
                 .map(EmployeeService::toSummaryDto)
                 .collect(Collectors.toList());
         } finally {
@@ -89,9 +92,9 @@ public class EmployeeService {
         try {
             tx.begin();
             normalizeEmployee(employee);
-            EmployeeRepository employeeRepo = new EmployeeRepository(em);
-            HobbyRepository hobbyRepo = new HobbyRepository(em);
-            Employee managed = employeeRepo.findById(employee.getId()).orElse(null);
+            IEmployeeDao employeeDao = new JpaEmployeeDao(em);
+            IGenericDao<Hobby, Long> hobbyDao = new JpaGenericDao<>(em, Hobby.class, Hobby::getId);
+            Employee managed = employeeDao.findById(employee.getId()).orElse(null);
             if (managed == null) {
                 tx.rollback();
                 return null;
@@ -105,12 +108,12 @@ public class EmployeeService {
                 for (Hobby h : employee.getHobbies()) {
                     if (h != null) {
                         h.setEmployee(managed);
-                        hobbyRepo.save(h);
+                        hobbyDao.save(h);
                         managed.getHobbies().add(h);
                     }
                 }
             }
-            employeeRepo.update(managed);
+            employeeDao.update(managed);
             tx.commit();
             return managed;
         } catch (Exception e) {
@@ -135,8 +138,8 @@ public class EmployeeService {
         EntityTransaction tx = em.getTransaction();
         try {
             tx.begin();
-            EmployeeRepository repo = new EmployeeRepository(em);
-            boolean removed = repo.deleteById(id);
+            IEmployeeDao employeeDao = new JpaEmployeeDao(em);
+            boolean removed = employeeDao.deleteById(id);
             tx.commit();
             return removed;
         } catch (Exception e) {

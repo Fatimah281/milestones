@@ -16,7 +16,7 @@ public class Hobby {
     @Column(name = "NAME", nullable = false, length = 255)
     private String name;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY,cascade = { CascadeType.PERSIST, CascadeType.MERGE, CascadeType.DETACH, CascadeType.REFRESH })
     @JsonBackReference
     @JoinColumn(name = "EMPLOYEE_ID", nullable = false)
     private Employee employee;
@@ -61,4 +61,15 @@ public class Hobby {
         this.employee = employee;
     }
     //</editor-fold>
+
+    //<editor-fold desc="toString">
+    @Override
+    public  String toString() {
+        return "Hobby{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                '}';
+    }
+    //</editor-fold>
+
 }
