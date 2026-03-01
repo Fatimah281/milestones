@@ -16,11 +16,47 @@ import java.util.Collection;
 @WebServlet(urlPatterns = {"/api/v1/employees", "/api/v1/employee/*"})
 public class EmployeeServlet extends HttpServlet {
 
-    //<editor-fold desc="GET - Read Employee(s)">
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+    //<editor-fold desc="Private helpers">
+    private static void setJsonResponse(HttpServletResponse response) {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
+    }
 
+    /** Parse employee ID from path like "/1". Returns null if path is invalid. */
+    private static Integer parseEmployeeId(String pathInfo) {
+        if (pathInfo == null || pathInfo.equals("/")) {
+            return null;
+        }
+        String[] parts = pathInfo.split("/");
+        if (parts.length < 2) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(parts[1]);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static void sendError(HttpServletResponse response, int status, String message) throws IOException {
+        response.setStatus(status);
+        response.getWriter().write("{\"message\":\"" + message + "\"}");
+    }
+
+    private static void setLocationHeader(HttpServletRequest request, HttpServletResponse response, String path) {
+        String location = request.getScheme() + "://"
+                + request.getServerName() + ":"
+                + request.getServerPort()
+                + request.getContextPath()
+                + path;
+        response.setHeader("Location", location);
+    }
+    //</editor-fold>
+
+    //<editor-fold desc="GET - Read Employee(s)">
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        setJsonResponse(response);
         String servletPath = request.getServletPath();
         String pathInfo = request.getPathInfo();
 
@@ -32,155 +68,84 @@ public class EmployeeServlet extends HttpServlet {
         }
 
         if ("/api/v1/employee".equals(servletPath)) {
-            if (pathInfo == null || pathInfo.equals("/")) {
-                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                response.getWriter().write("{\"message\":\"Employee ID is required\"}");
+            Integer id = parseEmployeeId(pathInfo);
+            if (id == null) {
+                sendError(response, HttpServletResponse.SC_BAD_REQUEST, "Employee ID is required");
                 return;
             }
 
-            // Extract ID from path
-            String[] parts = pathInfo.split("/");
-            if (parts.length < 2) {
-                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                response.getWriter().write("{\"message\":\"Invalid path format\"}");
+            Employee employee = EmployeeStorage.employeeDB.get(id);
+            if (employee == null) {
+                sendError(response, HttpServletResponse.SC_NOT_FOUND, "Employee not found");
                 return;
             }
 
-            try {
-                int id = Integer.parseInt(parts[1]);
-                Employee employee = EmployeeStorage.employeeDB.get(id);
-
-                if (employee == null) {
-                    response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-                    response.getWriter().write("{\"message\":\"Employee not found\"}");
-                    return;
-                }
-
-                response.setStatus(HttpServletResponse.SC_OK);
-                response.getWriter().write(JsonUtil.toJson(employee));
-
-            } catch (NumberFormatException e) {
-                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                response.getWriter().write("{\"message\":\"Invalid ID format\"}");
-            }
+            response.setStatus(HttpServletResponse.SC_OK);
+            response.getWriter().write(JsonUtil.toJson(employee));
             return;
         }
 
-        // ----- INVALID PATH -----
-        response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-        response.getWriter().write("{\"message\":\"Endpoint not found\"}");
+        sendError(response, HttpServletResponse.SC_NOT_FOUND, "Endpoint not found");
     }
     //</editor-fold>
+
     //<editor-fold desc="POST - Create Employee">
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
-
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
+        setJsonResponse(response);
 
         Employee employee = JsonUtil.fromJson(request.getReader(), Employee.class);
-
         int id = EmployeeStorage.idCounter.getAndIncrement();
         employee.setId(id);
         EmployeeStorage.employeeDB.put(id, employee);
 
         response.setStatus(HttpServletResponse.SC_CREATED);
-
-        String location = request.getScheme() + "://"
-                + request.getServerName() + ":"
-                + request.getServerPort()
-                + request.getContextPath()
-                + "/api/v1/employee/" + id;
-
-        response.setHeader("Location", location);
+        setLocationHeader(request, response, "/api/v1/employee/" + id);
     }
     //</editor-fold>
+
     //<editor-fold desc="PUT - Update Employee">
     @Override
     protected void doPut(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        String pathInfo = request.getPathInfo();
+        setJsonResponse(response);
+        Integer id = parseEmployeeId(request.getPathInfo());
 
-        if (pathInfo == null || pathInfo.equals("/")) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().write("{\"message\":\"Employee ID is required\"}");
+        if (id == null) {
+            sendError(response, HttpServletResponse.SC_BAD_REQUEST, "Employee ID is required");
+            return;
+        }
+        if (!EmployeeStorage.employeeDB.containsKey(id)) {
+            sendError(response, HttpServletResponse.SC_NOT_FOUND, "Employee not found");
             return;
         }
 
-        String[] parts = pathInfo.split("/");
-        if (parts.length < 2) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().write("{\"message\":\"Invalid path format\"}");
-            return;
-        }
+        Employee updatedEmployee = JsonUtil.fromJson(request.getReader(), Employee.class);
+        updatedEmployee.setId(id);
+        EmployeeStorage.employeeDB.put(id, updatedEmployee);
 
-        try {
-            int id = Integer.parseInt(parts[1]);
-            if (!EmployeeStorage.employeeDB.containsKey(id)) {
-                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-                response.getWriter().write("{\"message\":\"Employee not found\"}");
-                return;
-            }
-
-            Employee updatedEmployee = JsonUtil.fromJson(request.getReader(), Employee.class);
-            updatedEmployee.setId(id);
-            EmployeeStorage.employeeDB.put(id, updatedEmployee);
-
-            // 204 No Content + Location header
-            response.setStatus(HttpServletResponse.SC_NO_CONTENT);
-            String location = request.getScheme() + "://"
-                    + request.getServerName() + ":"
-                    + request.getServerPort()
-                    + request.getContextPath()
-                    + "/api/v1/employee/" + id;
-            response.setHeader("Location", location);
-
-        } catch (NumberFormatException e) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().write("{\"message\":\"Invalid ID format\"}");
-        }
+        response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+        setLocationHeader(request, response, "/api/v1/employee/" + id);
     }
     //</editor-fold>
+
     //<editor-fold desc="DELETE - Delete Employee">
     @Override
     protected void doDelete(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        String pathInfo = request.getPathInfo();
+        setJsonResponse(response);
+        Integer id = parseEmployeeId(request.getPathInfo());
 
-        if (pathInfo == null || pathInfo.equals("/")) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().write("{\"message\":\"Employee ID is required\"}");
+        if (id == null) {
+            sendError(response, HttpServletResponse.SC_BAD_REQUEST, "Employee ID is required");
+            return;
+        }
+        if (!EmployeeStorage.employeeDB.containsKey(id)) {
+            sendError(response, HttpServletResponse.SC_NOT_FOUND, "Employee not found");
             return;
         }
 
-        String[] parts = pathInfo.split("/");
-        if (parts.length < 2) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().write("{\"message\":\"Invalid path format\"}");
-            return;
-        }
-
-        try {
-            int id = Integer.parseInt(parts[1]);
-            if (!EmployeeStorage.employeeDB.containsKey(id)) {
-                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-                response.getWriter().write("{\"message\":\"Employee not found\"}");
-                return;
-            }
-
-            EmployeeStorage.employeeDB.remove(id);
-
-            // 204 No Content + Location header pointing to collection
-            response.setStatus(HttpServletResponse.SC_NO_CONTENT);
-            String location = request.getScheme() + "://"
-                    + request.getServerName() + ":"
-                    + request.getServerPort()
-                    + request.getContextPath()
-                    + "/api/v1/employees";
-            response.setHeader("Location", location);
-
-        } catch (NumberFormatException e) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().write("{\"message\":\"Invalid ID format\"}");
-        }
+        EmployeeStorage.employeeDB.remove(id);
+        response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+        setLocationHeader(request, response, "/api/v1/employees");
     }
     //</editor-fold>
 }
