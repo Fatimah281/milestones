@@ -5,9 +5,6 @@ import javax.naming.NamingException;
 import javax.sql.DataSource;
 //</editor-fold>
 
-/**
- * Provides the DataSource from JNDI (connection pooling).
- */
 public final class DataSourceProvider {
 
     //<editor-fold desc="Constants">

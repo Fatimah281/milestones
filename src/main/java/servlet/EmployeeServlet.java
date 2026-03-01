@@ -10,6 +10,7 @@ import service.EmployeeService;
 import util.JsonUtil;
 
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -34,7 +35,7 @@ public class EmployeeServlet extends HttpServlet {
         try {
             employeeService = new EmployeeService();
         } catch (Exception e) {
-            LOG.log(Level.SEVERE, "Failed to initialize EmployeeService (JNDI/DataSource)", e);
+            LOG.log(Level.SEVERE, "Failed to start EmployeeService (check DataSource)", e);
             throw new ServletException("DataSource not available", e);
         }
     }
@@ -43,26 +44,29 @@ public class EmployeeServlet extends HttpServlet {
     //<editor-fold desc="GET - Read Employee(s)">
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        response.setContentType(APPLICATION_JSON);
-        response.setCharacterEncoding(UTF_8);
+        setJsonResponse(response);
 
         String pathInfo = request.getPathInfo();
 
+        if (pathInfo == null || pathInfo.equals("/")) {
+            List<Employee> employees = null;
+            try {
+                employees = employeeService.findAll();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+            response.setStatus(HttpServletResponse.SC_OK);
+            response.getWriter().write(JsonUtil.toJson(employees));
+            return;
+        }
+
+        Integer id = parseIdFromPath(pathInfo);
+        if (id == null) {
+            sendError(response, HttpServletResponse.SC_BAD_REQUEST, "Invalid path format");
+            return;
+        }
+
         try {
-            if (pathInfo == null || pathInfo.equals("/")) {
-                List<Employee> employees = employeeService.findAll();
-                response.setStatus(HttpServletResponse.SC_OK);
-                response.getWriter().write(JsonUtil.toJson(employees));
-                return;
-            }
-
-            String[] parts = pathInfo.split("/");
-            if (parts.length < 2) {
-                sendError(response, HttpServletResponse.SC_BAD_REQUEST, "Invalid path format");
-                return;
-            }
-
-            int id = Integer.parseInt(parts[1]);
             Employee employee = employeeService.findById(id);
             if (employee == null) {
                 sendError(response, HttpServletResponse.SC_NOT_FOUND, "Employee not found");
@@ -70,8 +74,6 @@ public class EmployeeServlet extends HttpServlet {
             }
             response.setStatus(HttpServletResponse.SC_OK);
             response.getWriter().write(JsonUtil.toJson(employee));
-        } catch (NumberFormatException e) {
-            sendError(response, HttpServletResponse.SC_BAD_REQUEST, "Invalid ID format");
         } catch (Exception e) {
             LOG.log(Level.SEVERE, "GET failed", e);
             sendError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Server error");
@@ -82,12 +84,11 @@ public class EmployeeServlet extends HttpServlet {
     //<editor-fold desc="POST - Create Employee">
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        response.setContentType(APPLICATION_JSON);
-        response.setCharacterEncoding(UTF_8);
+        setJsonResponse(response);
 
         String pathInfo = request.getPathInfo();
         if (pathInfo != null && !pathInfo.equals("/")) {
-            sendError(response, HttpServletResponse.SC_BAD_REQUEST, "POST to collection only: /employees");
+            sendError(response, HttpServletResponse.SC_BAD_REQUEST, "POST only to /employees");
             return;
         }
 
@@ -99,10 +100,9 @@ public class EmployeeServlet extends HttpServlet {
             }
             Employee saved = employeeService.saveEmployeeWithHobbies(employee);
             response.setStatus(HttpServletResponse.SC_CREATED);
-            String location = request.getRequestURL().append("/").append(saved.getId()).toString();
-            response.setHeader("Location", location);
+            response.setHeader("Location", buildEmployeeUrl(request, saved.getId()));
         } catch (Exception e) {
-            LOG.log(Level.SEVERE, "POST /employees failed", e);
+            LOG.log(Level.SEVERE, "POST failed", e);
             sendError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to save employee");
         }
     }
@@ -111,23 +111,15 @@ public class EmployeeServlet extends HttpServlet {
     //<editor-fold desc="PUT - Update Employee">
     @Override
     protected void doPut(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        response.setContentType(APPLICATION_JSON);
-        response.setCharacterEncoding(UTF_8);
+        setJsonResponse(response);
 
-        String pathInfo = request.getPathInfo();
-        if (pathInfo == null || pathInfo.equals("/")) {
-            sendError(response, HttpServletResponse.SC_BAD_REQUEST, "Employee ID is required");
-            return;
-        }
-
-        String[] parts = pathInfo.split("/");
-        if (parts.length < 2) {
-            sendError(response, HttpServletResponse.SC_BAD_REQUEST, "Invalid path format");
+        Integer id = parseIdFromPath(request.getPathInfo());
+        if (id == null) {
+            sendError(response, HttpServletResponse.SC_BAD_REQUEST, "Employee ID is required in path (e.g. /5)");
             return;
         }
 
         try {
-            int id = Integer.parseInt(parts[1]);
             Employee employee = JsonUtil.fromJson(request.getReader(), Employee.class);
             if (employee == null) {
                 sendError(response, HttpServletResponse.SC_BAD_REQUEST, "Invalid JSON body");
@@ -140,8 +132,7 @@ public class EmployeeServlet extends HttpServlet {
                 return;
             }
             response.setStatus(HttpServletResponse.SC_NO_CONTENT);
-            String location = request.getRequestURL().toString();
-            response.setHeader("Location", location);
+            response.setHeader("Location", buildEmployeeUrl(request, id));
         } catch (NumberFormatException e) {
             sendError(response, HttpServletResponse.SC_BAD_REQUEST, "Invalid ID format");
         } catch (Exception e) {
@@ -154,31 +145,21 @@ public class EmployeeServlet extends HttpServlet {
     //<editor-fold desc="DELETE - Delete Employee">
     @Override
     protected void doDelete(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        response.setContentType(APPLICATION_JSON);
-        response.setCharacterEncoding(UTF_8);
+        setJsonResponse(response);
 
-        String pathInfo = request.getPathInfo();
-        if (pathInfo == null || pathInfo.equals("/")) {
-            sendError(response, HttpServletResponse.SC_BAD_REQUEST, "Employee ID is required");
-            return;
-        }
-
-        String[] parts = pathInfo.split("/");
-        if (parts.length < 2) {
-            sendError(response, HttpServletResponse.SC_BAD_REQUEST, "Invalid path format");
+        Integer id = parseIdFromPath(request.getPathInfo());
+        if (id == null) {
+            sendError(response, HttpServletResponse.SC_BAD_REQUEST, "Employee ID is required in path (e.g. /5)");
             return;
         }
 
         try {
-            int id = Integer.parseInt(parts[1]);
             int deleted = employeeService.delete(id);
             if (deleted == 0) {
                 sendError(response, HttpServletResponse.SC_NOT_FOUND, "Employee not found");
                 return;
             }
             response.setStatus(HttpServletResponse.SC_NO_CONTENT);
-        } catch (NumberFormatException e) {
-            sendError(response, HttpServletResponse.SC_BAD_REQUEST, "Invalid ID format");
         } catch (Exception e) {
             LOG.log(Level.SEVERE, "DELETE failed", e);
             sendError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Server error");
@@ -187,14 +168,40 @@ public class EmployeeServlet extends HttpServlet {
     //</editor-fold>
 
     //<editor-fold desc="Private Methods">
-    private static void sendError(HttpServletResponse response, int status, String message) throws IOException {
-        response.setStatus(status);
-        response.getWriter().write("{\"message\":\"" + escapeJson(message) + "\"}");
+    /** Set response type to JSON so the client knows how to read the body. */
+    private void setJsonResponse(HttpServletResponse response) {
+        response.setContentType(APPLICATION_JSON);
+        response.setCharacterEncoding(UTF_8);
     }
 
-    private static String escapeJson(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
+    private Integer parseIdFromPath(String pathInfo) {
+        if (pathInfo == null || pathInfo.equals("/")) {
+            return null;
+        }
+        String[] parts = pathInfo.split("/");
+        if (parts.length < 2) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(parts[1]);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** Send a JSON error message and set status code. */
+    private void sendError(HttpServletResponse response, int status, String message) throws IOException {
+        response.setStatus(status);
+        String safeMessage = message == null ? "" : message.replace("\\", "\\\\").replace("\"", "\\\"");
+        response.getWriter().write("{\"message\":\"" + safeMessage + "\"}");
+    }
+
+    /** Build full URL for an employee, e.g. http://localhost:8080/servlet_employee/api/v2/employee/5 */
+    private String buildEmployeeUrl(HttpServletRequest request, int id) {
+        return request.getScheme() + "://"
+                + request.getServerName() + ":"
+                + request.getServerPort()
+                + request.getContextPath() + "/api/v2/employee/" + id;
     }
     //</editor-fold>
 }

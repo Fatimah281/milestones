@@ -2,7 +2,7 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.milestones</groupId>
-  <artifactId>servlet_employee</artifactId>
+  <artifactId>servlet_employee_v2</artifactId>
   <packaging>war</packaging>
   <version>2.0-SNAPSHOT</version>
   <name>servlet_employee_v2 - Employee Management with DB2</name>
@@ -13,7 +13,6 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
   <dependencies>
-    <!-- Servlet API -->
     <dependency>
       <groupId>jakarta.servlet</groupId>
       <artifactId>jakarta.servlet-api</artifactId>
@@ -32,16 +31,9 @@
       <artifactId>jackson-databind</artifactId>
       <version>2.16.1</version>
     </dependency>
-    <!-- Test -->
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.13.2</version>
-      <scope>test</scope>
-    </dependency>
   </dependencies>
   <build>
-    <finalName>servlet_employee</finalName>
+    <finalName>servlet_employee_v2</finalName>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -61,7 +53,6 @@
           <encoding>UTF-8</encoding>
         </configuration>
       </plugin>
-      <!-- Copy DB2 driver to target so you can put it in Tomcat lib (fixes ClassNotFoundException when using JNDI DataSource) -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>

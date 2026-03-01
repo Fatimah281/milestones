@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Packaged into WAR; used when deploying to Tomcat (mvn package, production). -->
-<Context>
+<Context
+        docBase="servlet_employee"
+        path="/servlet_employee"
+        reloadable="true"
+        swallowOutput="true"
+        antiResourceLocking="true">
     <Resource name="jdbc/EmployeeDB"
               auth="Container"
               type="javax.sql.DataSource"

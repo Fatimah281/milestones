@@ -13,7 +13,7 @@
     <Manager pathname="SESSIONS.ser" />
     -->
 
-    <!-- DB2 DataSource (JNDI) - must match your DB2 server (host, port, database, credentials) -->
+    <!-- DB2 DataSource -->
     <Resource name="jdbc/EmployeeDB"
               auth="Container"
               type="javax.sql.DataSource"

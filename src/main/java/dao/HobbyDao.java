@@ -13,7 +13,7 @@ import java.util.List;
 //</editor-fold>
 
 /**
- * DAO for Hobby table.
+ * DAO for Hobby table
  */
 public class HobbyDao {
 
@@ -36,9 +36,6 @@ public class HobbyDao {
     //</editor-fold>
 
     //<editor-fold desc="Public Methods">
-    /**
-     * Inserts all hobbies for an employee and sets their ids and employeeId on the entities.
-     */
     public void insertAll(Connection conn, int employeeId, List<Hobby> hobbies) throws SQLException {
         if (hobbies == null || hobbies.isEmpty()) {
             return;
@@ -64,7 +61,7 @@ public class HobbyDao {
             ps.setInt(1, employeeId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    list.add(mapRow(rs));
+                    list.add(rowToHobby(rs));
                 }
             }
         }
@@ -80,7 +77,7 @@ public class HobbyDao {
     //</editor-fold>
 
     //<editor-fold desc="Private Methods">
-    private static Hobby mapRow(ResultSet rs) throws SQLException {
+    private static Hobby rowToHobby(ResultSet rs) throws SQLException {
         Hobby h = new Hobby();
         h.setId(rs.getInt("ID"));
         h.setEmployeeId(rs.getInt("EMPLOYEE_ID"));
