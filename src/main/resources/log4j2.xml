@@ -7,13 +7,13 @@
   </Properties>
 
   <Appenders>
-    <!-- Console: real-time monitoring -->
+    <!-- Console: INFO and above for normal monitoring -->
     <Console name="Console" target="SYSTEM_OUT">
       <PatternLayout pattern="${LOG_PATTERN}"/>
       <ThresholdFilter level="INFO" onMatch="ACCEPT" onMismatch="DENY"/>
     </Console>
 
-    <!-- File: audit and debugging -->
+    <!-- File: INFO and above for audit -->
     <RollingFile name="FileAppender"
                  fileName="${LOG_DIR}/${LOG_FILE}.log"
                  filePattern="${LOG_DIR}/${LOG_FILE}-%d{yyyy-MM-dd}-%i.log.gz">
@@ -25,28 +25,48 @@
       <DefaultRolloverStrategy max="10"/>
       <ThresholdFilter level="INFO" onMatch="ACCEPT" onMismatch="DENY"/>
     </RollingFile>
+
+    <!-- Diagnostic file: all levels (TRACE, DEBUG, INFO, WARN, ERROR, FATAL) for debugging -->
+    <RollingFile name="DiagnosticFile"
+                 fileName="${LOG_DIR}/${LOG_FILE}-diagnostic.log"
+                 filePattern="${LOG_DIR}/${LOG_FILE}-diagnostic-%d{yyyy-MM-dd}-%i.log.gz">
+      <PatternLayout pattern="${LOG_PATTERN}"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+        <SizeBasedTriggeringPolicy size="10 MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="5"/>
+    </RollingFile>
   </Appenders>
 
   <Loggers>
-    <!-- Application packages: INFO for normal ops, WARN/ERROR for issues -->
-    <Logger name="servlet" level="INFO" additivity="false">
-      <AppenderRef ref="Console"/>
-      <AppenderRef ref="FileAppender"/>
+    <!-- Application: TRACE/DEBUG go to diagnostic file; INFO+ to console and main file -->
+    <Logger name="ServletController" level="TRACE" additivity="false">
+      <AppenderRef ref="Console" level="INFO"/>
+      <AppenderRef ref="FileAppender" level="INFO"/>
+      <AppenderRef ref="DiagnosticFile" level="TRACE"/>
     </Logger>
-    <Logger name="service" level="INFO" additivity="false">
-      <AppenderRef ref="Console"/>
-      <AppenderRef ref="FileAppender"/>
+    <Logger name="service" level="TRACE" additivity="false">
+      <AppenderRef ref="Console" level="INFO"/>
+      <AppenderRef ref="FileAppender" level="INFO"/>
+      <AppenderRef ref="DiagnosticFile" level="TRACE"/>
     </Logger>
-    <Logger name="repository" level="INFO" additivity="false">
-      <AppenderRef ref="Console"/>
-      <AppenderRef ref="FileAppender"/>
+    <Logger name="DAO" level="TRACE" additivity="false">
+      <AppenderRef ref="Console" level="INFO"/>
+      <AppenderRef ref="FileAppender" level="INFO"/>
+      <AppenderRef ref="DiagnosticFile" level="TRACE"/>
     </Logger>
-    <Logger name="util" level="INFO" additivity="false">
-      <AppenderRef ref="Console"/>
-      <AppenderRef ref="FileAppender"/>
+    <Logger name="util" level="TRACE" additivity="false">
+      <AppenderRef ref="Console" level="INFO"/>
+      <AppenderRef ref="FileAppender" level="INFO"/>
+      <AppenderRef ref="DiagnosticFile" level="TRACE"/>
+    </Logger>
+    <Logger name="exception" level="TRACE" additivity="false">
+      <AppenderRef ref="Console" level="INFO"/>
+      <AppenderRef ref="FileAppender" level="INFO"/>
+      <AppenderRef ref="DiagnosticFile" level="TRACE"/>
     </Logger>
 
-    <!-- Root: fallback -->
     <Root level="INFO">
       <AppenderRef ref="Console"/>
       <AppenderRef ref="FileAppender"/>
