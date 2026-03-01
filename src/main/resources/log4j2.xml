@@ -7,13 +7,11 @@
   </Properties>
 
   <Appenders>
-    <!-- Console: INFO and above for normal monitoring -->
     <Console name="Console" target="SYSTEM_OUT">
       <PatternLayout pattern="${LOG_PATTERN}"/>
       <ThresholdFilter level="INFO" onMatch="ACCEPT" onMismatch="DENY"/>
     </Console>
 
-    <!-- File: INFO and above for audit -->
     <RollingFile name="FileAppender"
                  fileName="${LOG_DIR}/${LOG_FILE}.log"
                  filePattern="${LOG_DIR}/${LOG_FILE}-%d{yyyy-MM-dd}-%i.log.gz">
@@ -26,7 +24,6 @@
       <ThresholdFilter level="INFO" onMatch="ACCEPT" onMismatch="DENY"/>
     </RollingFile>
 
-    <!-- Diagnostic file: all levels (TRACE, DEBUG, INFO, WARN, ERROR, FATAL) for debugging -->
     <RollingFile name="DiagnosticFile"
                  fileName="${LOG_DIR}/${LOG_FILE}-diagnostic.log"
                  filePattern="${LOG_DIR}/${LOG_FILE}-diagnostic-%d{yyyy-MM-dd}-%i.log.gz">
@@ -40,7 +37,6 @@
   </Appenders>
 
   <Loggers>
-    <!-- Application: TRACE/DEBUG go to diagnostic file; INFO+ to console and main file -->
     <Logger name="ServletController" level="TRACE" additivity="false">
       <AppenderRef ref="Console" level="INFO"/>
       <AppenderRef ref="FileAppender" level="INFO"/>

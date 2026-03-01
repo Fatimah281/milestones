@@ -5,10 +5,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 //</editor-fold>
 
-/**
- * Standard JSON error response for API consumers.
- * Never exposes stack traces; for internal debugging use logs.
- */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ApiError {
 

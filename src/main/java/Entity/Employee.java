@@ -101,9 +101,6 @@ public class Employee {
         this.hobbies.forEach(h -> h.setEmployee(this));
     }
 
-    /**
-     * Adds a hobby and maintains the bidirectional relationship.
-     */
     public void addHobby(Hobby hobby) {
         if (hobby != null) {
             hobbies.add(hobby);
@@ -111,9 +108,6 @@ public class Employee {
         }
     }
 
-    /**
-     * Removes a hobby and clears the bidirectional relationship.
-     */
     public void removeHobby(Hobby hobby) {
         if (hobby != null) {
             hobbies.remove(hobby);

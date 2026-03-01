@@ -1,7 +1,7 @@
 # Milestone 04 – Logging, JSON Schema Validation & Exception Handling (Servlet V4)
 
 ## Overview
-This milestone enhances the Employee RESTful API (Version 4) with **Log4j2** logging, **JSON Schema validation** (FasterXML/Jackson), and **structured exception handling**.
+This milestone enhances the Employee RESTful API (Version 4) with **Log4j 2** logging, **JSON Schema validation** (FasterXML/Jackson), and **structured exception handling**.
 
 Benefits:
 - Better debugging and monitoring
@@ -16,15 +16,15 @@ All APIs are RESTful and tested with Postman.
 ## Technologies
 - Java (JDK) · Servlet / J2EE · Apache Tomcat · IBM DB2
 - JDBC · JNDI Connection Pooling
-- Apache Log4j2 · FasterXML (Jackson)
+- Apache Log4j 2 · FasterXML (Jackson)
 - RESTful API · Postman
 
 ---
 
 ## Features
 
-### 1. Logging (Log4j2)
-- **Config:** `log4j2.xml` with levels TRACE, DEBUG, INFO, WARN, ERROR, FATAL
+### 1. Logging (Log4j 2)
+- **Config:** `log4j2.xml` (Log4j 2’s config file name) with levels TRACE, DEBUG, INFO, WARN, ERROR, FATAL
 - **Where:** Controllers, Service, DAO, exception handling
 - **Output:** Console + rolling file appender  
 → Tracks API calls, request data, DB operations, and errors.

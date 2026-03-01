@@ -3,10 +3,6 @@ package exception;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Thrown when request payload or parameters fail validation (e.g. JSON schema, business rules).
- * Maps to HTTP 400 Bad Request.
- */
 public class ValidationException extends RuntimeException {
 
     private final List<String> details;

@@ -1,7 +1,6 @@
 package DAO;
 //<editor-fold desc="Imports">
 import jakarta.persistence.EntityManager;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 

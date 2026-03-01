@@ -58,8 +58,10 @@ public class EmployeeServlet extends HttpServlet {
         try {
             String path = req.getPathInfo();
             if (path == null || path.equals("/")) {
-                int offset = param(req, "offset", 0);
-                int limit = Math.max(1, Math.min(20, param(req, "limit", 5)));
+                int offset = getIntParam(req, "offset", 0);
+                int limit = getIntParam(req, "limit", 5);
+                if (limit < 1) limit = 1;
+                if (limit > 20) limit = 20;
                 LOG.trace("List employees offset={}, limit={}", offset, limit);
                 List<?> list = service.findAll(offset, limit);
                 resp.setStatus(HttpServletResponse.SC_OK);
@@ -68,13 +70,13 @@ public class EmployeeServlet extends HttpServlet {
             }
             Optional<Long> id = parseId(path);
             if (id.isEmpty()) {
-                LOG.warn("GET invalid path: {}", path);
+                LOG.error("GET invalid path: {}", path);
                 sendApiError(resp, HttpServletResponse.SC_BAD_REQUEST, "Bad Request", "Invalid ID");
                 return;
             }
             Optional<?> one = service.findById(id.get());
             if (one.isEmpty()) {
-                LOG.warn("GET employee not found: id={}", id.get());
+                LOG.error("GET employee not found: id={}", id.get());
                 sendApiError(resp, HttpServletResponse.SC_NOT_FOUND, "Not Found", "Employee not found");
                 return;
             }
@@ -93,7 +95,7 @@ public class EmployeeServlet extends HttpServlet {
         LOG.debug("POST {}", req.getRequestURI());
         try {
             if (req.getPathInfo() != null && !req.getPathInfo().equals("/")) {
-                LOG.warn("POST to non-root path: {}", req.getPathInfo());
+                LOG.error("POST to non-root path: {}", req.getPathInfo());
                 sendApiError(resp, HttpServletResponse.SC_BAD_REQUEST, "Bad Request", "POST to /employees only");
                 return;
             }
@@ -103,10 +105,10 @@ public class EmployeeServlet extends HttpServlet {
             resp.setHeader("Location", location(req, created.getId()));
             LOG.info("Created employee id={}", created.getId());
         } catch (ValidationException e) {
-            LOG.warn("Validation failed on POST: {}", e.getMessage());
+            LOG.error("Validation failed on POST: {}", e.getMessage());
             sendApiError(resp, HttpServletResponse.SC_BAD_REQUEST, "Validation Failed", e.getMessage(), e.getDetails());
         } catch (InvalidJsonException e) {
-            LOG.warn("Invalid JSON on POST: {}", e.getMessage());
+            LOG.error("Invalid JSON on POST: {}", e.getMessage());
             sendApiError(resp, HttpServletResponse.SC_BAD_REQUEST, "Bad Request", e.getMessage());
         } catch (Exception e) {
             handleError(resp, "POST", req.getRequestURI(), e);
@@ -135,10 +137,10 @@ public class EmployeeServlet extends HttpServlet {
             resp.setHeader("Location", location(req, id.get()));
             LOG.info("Updated employee id={}", id.get());
         } catch (ValidationException e) {
-            LOG.warn("Validation failed on PUT: {}", e.getMessage());
+            LOG.error("Validation failed on PUT: {}", e.getMessage());
             sendApiError(resp, HttpServletResponse.SC_BAD_REQUEST, "Validation Failed", e.getMessage(), e.getDetails());
         } catch (InvalidJsonException e) {
-            LOG.warn("Invalid JSON on PUT: {}", e.getMessage());
+            LOG.error("Invalid JSON on PUT: {}", e.getMessage());
             sendApiError(resp, HttpServletResponse.SC_BAD_REQUEST, "Bad Request", e.getMessage());
         } catch (Exception e) {
             handleError(resp, "PUT", req.getRequestURI(), e);
@@ -170,13 +172,15 @@ public class EmployeeServlet extends HttpServlet {
     //</editor-fold>
 
     //<editor-fold desc="Private Methods">
-    private static int param(HttpServletRequest req, String name, int def) {
-        String v = req.getParameter(name);
-        if (v == null || v.isBlank()) return def;
+    private static int getIntParam(HttpServletRequest req, String name, int defaultValue) {
+        String value = req.getParameter(name);
+        if (value == null || value.isBlank()) {
+            return defaultValue;
+        }
         try {
-            return Integer.parseInt(v.trim());
+            return Integer.parseInt(value.trim());
         } catch (NumberFormatException e) {
-            return def;
+            return defaultValue;
         }
     }
 
@@ -197,11 +201,15 @@ public class EmployeeServlet extends HttpServlet {
 
     private void sendApiError(HttpServletResponse resp, int status, String error, String message, List<String> details) throws IOException {
         resp.setStatus(status);
-        ApiError apiError = details != null ? new ApiError(error, message, details) : new ApiError(error, message);
+        ApiError apiError;
+        if (details != null) {
+            apiError = new ApiError(error, message, details);
+        } else {
+            apiError = new ApiError(error, message);
+        }
         resp.getWriter().write(JsonUtil.toJson(apiError));
     }
 
-    /** Centralized handling for unexpected exceptions. */
     private void handleError(HttpServletResponse resp, String method, String uri, Exception e) throws IOException {
         if (e instanceof ValidationException ve) {
             sendApiError(resp, HttpServletResponse.SC_BAD_REQUEST, "Validation Failed", ve.getMessage(), ve.getDetails());
@@ -216,17 +224,16 @@ public class EmployeeServlet extends HttpServlet {
             return;
         }
         if (e.getCause() instanceof JsonProcessingException) {
-            LOG.warn("Malformed JSON: {}", e.getCause().getMessage());
+            LOG.error("Malformed JSON: {}", e.getCause().getMessage());
             sendApiError(resp, HttpServletResponse.SC_BAD_REQUEST, "Bad Request", "Invalid JSON syntax");
             return;
         }
         LOG.error("{} {} failed", method, uri, e);
-        sendApiError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal Server Error",
-                "An unexpected error occurred. Please try again later.");
+        sendApiError(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal Server Error", "An unexpected error occurred. Please try again later.");
     }
 
     private static String location(HttpServletRequest req, long id) {
-        return req.getScheme() + "://" + req.getServerName() + ":" + req.getServerPort() + req.getContextPath() + "/api/v3/employee/" + id;
+        return req.getScheme() + "://" + req.getServerName() + ":" + req.getServerPort() + req.getContextPath() + "/api/v4/employee/" + id;
     }
     //</editor-fold>
 }

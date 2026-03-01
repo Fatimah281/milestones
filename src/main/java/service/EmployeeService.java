@@ -5,7 +5,6 @@ import DTO.EmployeeDto;
 import DTO.HobbyDto;
 import Entity.Employee;
 import Entity.Hobby;
-import exception.ResourceNotFoundException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.EntityTransaction;
@@ -16,7 +15,6 @@ import org.apache.logging.log4j.Logger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 //</editor-fold>
 
 public class EmployeeService {
@@ -33,7 +31,6 @@ public class EmployeeService {
     //</editor-fold>
 
     //<editor-fold desc="Public Methods">
-    /** Get all employees (summary, no hobbies). */
     public List<EmployeeDto> findAll(int offset, int limit) {
         LOG.debug("findAll offset={}, limit={}", offset, limit);
         EntityManager em = emf.createEntityManager();
@@ -51,27 +48,20 @@ public class EmployeeService {
         }
     }
 
-    /** Get one employee by id (with hobbies). */
     public Optional<EmployeeDto> findById(Long id) {
         LOG.debug("findById id={}", id);
         EntityManager em = emf.createEntityManager();
         try {
             Optional<Employee> employee = findEmployeeWithHobbies(em, id);
-            return employee.map(this::toDetailsDto);
+            if (employee.isEmpty()) {
+                return Optional.empty();
+            }
+            return Optional.of(toDetailsDto(employee.get()));
         } finally {
             em.close();
         }
     }
 
-    /** Get one employee by id or throw ResourceNotFoundException. */
-    public EmployeeDto getByIdOrThrow(Long id) {
-        return findById(id).orElseThrow(() -> {
-            LOG.warn("Employee not found: id={}", id);
-            return new ResourceNotFoundException("Employee not found: " + id);
-        });
-    }
-
-    /** Create employee. */
     public Employee create(Employee employee) {
         LOG.info("Creating employee: name={}", employee != null ? employee.getName() : null);
         EntityManager em = emf.createEntityManager();
@@ -94,7 +84,6 @@ public class EmployeeService {
         }
     }
 
-    /** Update employee by id. */
     public Optional<Employee> update(Long id, Employee employee) {
         LOG.debug("Updating employee id={}", id);
         EntityManager em = emf.createEntityManager();
@@ -105,7 +94,7 @@ public class EmployeeService {
             GenericDao<Hobby, Long> hobbyDao = new GenericDao<>(em, Hobby.class, Hobby::getId);
             Employee managed = empDao.findById(id).orElse(null);
             if (managed == null) {
-                LOG.warn("Update failed: employee not found id={}", id);
+                LOG.error("Update failed: employee not found id={}", id);
                 tx.rollback();
                 return Optional.empty();
             }
@@ -137,7 +126,6 @@ public class EmployeeService {
         }
     }
 
-    /** Delete employee by id. */
     public boolean deleteById(Long id) {
         LOG.debug("Deleting employee id={}", id);
         EntityManager em = emf.createEntityManager();
@@ -150,7 +138,7 @@ public class EmployeeService {
             if (removed) {
                 LOG.info("Deleted employee id={}", id);
             } else {
-                LOG.warn("Delete: employee not found id={}", id);
+                LOG.error("Delete: employee not found id={}", id);
             }
             return removed;
         } catch (Exception e) {
@@ -193,11 +181,15 @@ public class EmployeeService {
 
     private EmployeeDto toDetailsDto(Employee e) {
         if (e == null) return null;
-        List<HobbyDto> hobbies = e.getHobbies() == null ? List.of() : e.getHobbies().stream()
-            .filter(h -> h != null)
-            .map(h -> new HobbyDto(h.getId(), h.getName()))
-            .collect(Collectors.toList());
-        return new EmployeeDto(e.getId(), e.getName(), e.getGender(), e.getDateOfBirth(), e.getPhoneNumber(), hobbies);
+        List<HobbyDto> hobbyList = new ArrayList<>();
+        if (e.getHobbies() != null) {
+            for (Hobby h : e.getHobbies()) {
+                if (h != null) {
+                    hobbyList.add(new HobbyDto(h.getId(), h.getName()));
+                }
+            }
+        }
+        return new EmployeeDto(e.getId(), e.getName(), e.getGender(), e.getDateOfBirth(), e.getPhoneNumber(), hobbyList);
     }
     //</editor-fold>
 }
