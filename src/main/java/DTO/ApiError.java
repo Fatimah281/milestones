@@ -1,4 +1,4 @@
-package dto;
+package DTO;
 //<editor-fold desc="Imports">
 import com.fasterxml.jackson.annotation.JsonInclude;
 //</editor-fold>

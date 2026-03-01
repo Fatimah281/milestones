@@ -27,12 +27,5 @@ public final class JpaUtil {
         }
         return emf;
     }
-
-    public static void shutdown() {
-        if (emf != null && emf.isOpen()) {
-            emf.close();
-            emf = null;
-        }
-    }
     //</editor-fold>
 }

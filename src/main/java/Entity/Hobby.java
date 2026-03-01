@@ -1,16 +1,10 @@
-package model;
+package Entity;
 //<editor-fold desc="Imports">
+
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 //</editor-fold>
+
 @Entity
 @Table(name = "HOBBY", schema = "EMP_HOB")
 public class Hobby {
@@ -24,7 +18,7 @@ public class Hobby {
     @Column(name = "NAME", nullable = false, length = 255)
     private String name;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY,cascade = { CascadeType.PERSIST, CascadeType.MERGE, CascadeType.DETACH, CascadeType.REFRESH })
     @JsonBackReference
     @JoinColumn(name = "EMPLOYEE_ID", nullable = false)
     private Employee employee;
@@ -67,6 +61,16 @@ public class Hobby {
 
     public void setEmployee(Employee employee) {
         this.employee = employee;
+    }
+    //</editor-fold>
+
+    //<editor-fold desc="toString">
+    @Override
+    public  String toString() {
+        return "Hobby{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                '}';
     }
     //</editor-fold>
 }

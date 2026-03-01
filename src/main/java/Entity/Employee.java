@@ -1,15 +1,7 @@
-package model;
+package Entity;
 //<editor-fold desc="Imports">
 import com.fasterxml.jackson.annotation.JsonManagedReference;
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,7 +29,7 @@ public class Employee {
     @Column(name = "PHONE_NUMBER", length = 50)
     private String phoneNumber;
 
-    @OneToMany(mappedBy = "employee", fetch = FetchType.EAGER, cascade = { CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE }, orphanRemoval = true)
+    @OneToMany(mappedBy = "employee", fetch = FetchType.EAGER, cascade = { CascadeType.PERSIST, CascadeType.MERGE, CascadeType.DETACH, CascadeType.REFRESH })
     @JsonManagedReference
     private List<Hobby> hobbies = new ArrayList<>();
     //</editor-fold>
@@ -102,7 +94,45 @@ public class Employee {
     }
 
     public void setHobbies(List<Hobby> hobbies) {
+        if (this.hobbies != null) {
+            this.hobbies.forEach(h -> h.setEmployee(null));
+        }
         this.hobbies = hobbies != null ? hobbies : new ArrayList<>();
+        this.hobbies.forEach(h -> h.setEmployee(this));
+    }
+
+    /**
+     * Adds a hobby and maintains the bidirectional relationship.
+     */
+    public void addHobby(Hobby hobby) {
+        if (hobby != null) {
+            hobbies.add(hobby);
+            hobby.setEmployee(this);
+        }
+    }
+
+    /**
+     * Removes a hobby and clears the bidirectional relationship.
+     */
+    public void removeHobby(Hobby hobby) {
+        if (hobby != null) {
+            hobbies.remove(hobby);
+            hobby.setEmployee(null);
+        }
     }
     //</editor-fold>
+
+    //<editor-fold desc="toString">
+    @Override
+    public String toString() {
+        return "Employee{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", gender='" + gender + '\'' +
+                ", dateOfBirth='" + dateOfBirth + '\'' +
+                ", phoneNumber='" + phoneNumber + '\'' +
+                '}';
+    }
+    //</editor-fold>
+
 }
