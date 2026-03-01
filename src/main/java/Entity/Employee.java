@@ -1,4 +1,4 @@
-package model;
+package Entity;
 //<editor-fold desc="Imports">
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;

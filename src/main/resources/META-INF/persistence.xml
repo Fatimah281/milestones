@@ -8,8 +8,8 @@
     <provider>org.hibernate.jpa.HibernatePersistenceProvider</provider>
     <!-- JNDI DataSource from Tomcat (connection pool from Milestone 2) -->
     <non-jta-data-source>java:comp/env/jdbc/EmployeeDB</non-jta-data-source>
-    <class>model.Employee</class>
-    <class>model.Hobby</class>
+    <class>Entity.Employee</class>
+    <class>Entity.Hobby</class>
 
     <properties>
       <property name="hibernate.dialect" value="org.hibernate.dialect.DB2Dialect"/>

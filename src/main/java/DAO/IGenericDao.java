@@ -1,4 +1,4 @@
-package dao;
+package DAO;
 //<editor-fold desc="Imports">
 import java.util.List;
 import java.util.Optional;
@@ -6,15 +6,15 @@ import java.util.Optional;
 
 public interface IGenericDao<T, ID> {
 
-  T save(T entity);
+    //<editor-fold desc="Methods">
+    T save(T entity);
 
-  Optional<T> findById(ID id);
+    Optional<T> findById(ID id);
 
-  List<T> findAll(int offset, int limit);
+    List<T> findAll(int offset, int limit);
 
-  T update(T entity);
+    T update(T entity);
 
-  void delete(T entity);
-
-  boolean deleteById(ID id);
+    boolean deleteById(ID id);
+    //</editor-fold>
 }

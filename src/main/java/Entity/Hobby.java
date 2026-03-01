@@ -1,8 +1,10 @@
-package model;
+package Entity;
 //<editor-fold desc="Imports">
+
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 //</editor-fold>
+
 @Entity
 @Table(name = "HOBBY", schema = "EMP_HOB")
 public class Hobby {
@@ -71,5 +73,4 @@ public class Hobby {
                 '}';
     }
     //</editor-fold>
-
 }
