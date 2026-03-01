@@ -16,43 +16,6 @@ import java.util.Collection;
 @WebServlet(urlPatterns = {"/api/v1/employees", "/api/v1/employee/*"})
 public class EmployeeServlet extends HttpServlet {
 
-    //<editor-fold desc="Private helpers">
-    private static void setJsonResponse(HttpServletResponse response) {
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
-    }
-
-    /** Parse employee ID from path like "/1". Returns null if path is invalid. */
-    private static Integer parseEmployeeId(String pathInfo) {
-        if (pathInfo == null || pathInfo.equals("/")) {
-            return null;
-        }
-        String[] parts = pathInfo.split("/");
-        if (parts.length < 2) {
-            return null;
-        }
-        try {
-            return Integer.parseInt(parts[1]);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    private static void sendError(HttpServletResponse response, int status, String message) throws IOException {
-        response.setStatus(status);
-        response.getWriter().write("{\"message\":\"" + message + "\"}");
-    }
-
-    private static void setLocationHeader(HttpServletRequest request, HttpServletResponse response, String path) {
-        String location = request.getScheme() + "://"
-                + request.getServerName() + ":"
-                + request.getServerPort()
-                + request.getContextPath()
-                + path;
-        response.setHeader("Location", location);
-    }
-    //</editor-fold>
-
     //<editor-fold desc="GET - Read Employee(s)">
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -146,6 +109,43 @@ public class EmployeeServlet extends HttpServlet {
         EmployeeStorage.employeeDB.remove(id);
         response.setStatus(HttpServletResponse.SC_NO_CONTENT);
         setLocationHeader(request, response, "/api/v1/employees");
+    }
+    //</editor-fold>
+
+
+    //<editor-fold desc="Private helpers">
+    private static void setJsonResponse(HttpServletResponse response) {
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+    }
+
+    private static Integer parseEmployeeId(String pathInfo) {
+        if (pathInfo == null || pathInfo.equals("/")) {
+            return null;
+        }
+        String[] parts = pathInfo.split("/");
+        if (parts.length < 2) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(parts[1]);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static void sendError(HttpServletResponse response, int status, String message) throws IOException {
+        response.setStatus(status);
+        response.getWriter().write("{\"message\":\"" + message + "\"}");
+    }
+
+    private static void setLocationHeader(HttpServletRequest request, HttpServletResponse response, String path) {
+        String location = request.getScheme() + "://"
+                + request.getServerName() + ":"
+                + request.getServerPort()
+                + request.getContextPath()
+                + path;
+        response.setHeader("Location", location);
     }
     //</editor-fold>
 }
