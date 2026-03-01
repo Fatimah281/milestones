@@ -29,7 +29,7 @@ public class Employee {
     @Column(name = "PHONE_NUMBER", length = 50)
     private String phoneNumber;
 
-    @OneToMany(mappedBy = "employee", fetch = FetchType.EAGER, cascade = { CascadeType.PERSIST, CascadeType.MERGE, CascadeType.DETACH, CascadeType.REFRESH })
+    @OneToMany(mappedBy = "employee", fetch = FetchType.EAGER, cascade = { CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE, CascadeType.DETACH, CascadeType.REFRESH })
     @JsonManagedReference
     private List<Hobby> hobbies = new ArrayList<>();
     //</editor-fold>
