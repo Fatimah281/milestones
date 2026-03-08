@@ -1,5 +1,7 @@
 package DTO;
 //<editor-fold desc="Imports">
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import java.util.List;
 //</editor-fold>
 
@@ -11,6 +13,7 @@ public class EmployeeDto {
     private final String gender;
     private final String dateOfBirth;
     private final String phoneNumber;
+    @JsonInclude(JsonInclude.Include.ALWAYS)
     private final List<HobbyDto> hobbies;
     //</editor-fold>
 
@@ -21,7 +24,7 @@ public class EmployeeDto {
         this.gender = gender;
         this.dateOfBirth = dateOfBirth;
         this.phoneNumber = phoneNumber;
-        this.hobbies = hobbies;
+        this.hobbies = hobbies != null ? hobbies : List.of();
     }
     //</editor-fold>
 

@@ -3,18 +3,27 @@ package service;
 import DAO.GenericDao;
 import DTO.EmployeeDto;
 import DTO.HobbyDto;
+import DTO.PagedResult;
 import Entity.Employee;
 import Entity.Hobby;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.EntityTransaction;
+import jakarta.persistence.Query;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import exception.ValidationException;
 //</editor-fold>
 
 public class EmployeeService {
@@ -31,18 +40,30 @@ public class EmployeeService {
     //</editor-fold>
 
     //<editor-fold desc="Public Methods">
-    public List<EmployeeDto> findAll(int offset, int limit) {
+    public PagedResult findAll(int offset, int limit) {
         LOG.debug("findAll offset={}, limit={}", offset, limit);
         EntityManager em = emf.createEntityManager();
         try {
+            long totalCount = countEmployeesFromDb(em);
             GenericDao<Employee, Long> dao = new GenericDao<>(em, Employee.class, Employee::getId);
             List<Employee> employees = dao.findAll(offset, limit);
-            List<EmployeeDto> result = new ArrayList<>();
-            for (Employee e : employees) {
-                result.add(toSummaryDto(e));
+            if (employees.isEmpty()) {
+                return new PagedResult(totalCount, offset, limit, List.of());
             }
-            LOG.info("Found {} employees", result.size());
-            return result;
+            List<Long> ids = employees.stream().map(Employee::getId).collect(Collectors.toList());
+            List<Hobby> hobbiesList = em.createQuery(
+                    "SELECT h FROM Hobby h WHERE h.employee.id IN :ids", Hobby.class)
+                    .setParameter("ids", ids)
+                    .getResultList();
+            Map<Long, List<Hobby>> hobbiesByEmployeeId = hobbiesList.stream()
+                    .collect(Collectors.groupingBy(h -> h.getEmployee().getId()));
+            List<EmployeeDto> data = new ArrayList<>();
+            for (Employee e : employees) {
+                List<Hobby> empHobbies = hobbiesByEmployeeId.getOrDefault(e.getId(), List.of());
+                data.add(toDetailsDto(e, empHobbies));
+            }
+            LOG.info("Found {} of {} employees (offset={}, limit={})", data.size(), totalCount, offset, limit);
+            return new PagedResult(totalCount, offset, limit, data);
         } finally {
             em.close();
         }
@@ -52,11 +73,16 @@ public class EmployeeService {
         LOG.debug("findById id={}", id);
         EntityManager em = emf.createEntityManager();
         try {
-            Optional<Employee> employee = findEmployeeWithHobbies(em, id);
+            GenericDao<Employee, Long> dao = new GenericDao<>(em, Employee.class, Employee::getId);
+            Optional<Employee> employee = dao.findById(id);
             if (employee.isEmpty()) {
                 return Optional.empty();
             }
-            return Optional.of(toDetailsDto(employee.get()));
+            List<Hobby> empHobbies = em.createQuery(
+                    "SELECT h FROM Hobby h WHERE h.employee.id = :id", Hobby.class)
+                    .setParameter("id", id)
+                    .getResultList();
+            return Optional.of(toDetailsDto(employee.get(), empHobbies));
         } finally {
             em.close();
         }
@@ -69,6 +95,7 @@ public class EmployeeService {
         try {
             tx.begin();
             normalize(employee);
+            deduplicateHobbies(employee);
             linkHobbiesTo(employee, employee);
             GenericDao<Employee, Long> dao = new GenericDao<>(em, Employee.class, Employee::getId);
             Employee saved = dao.save(employee);
@@ -99,20 +126,13 @@ public class EmployeeService {
                 return Optional.empty();
             }
             normalize(employee);
+            deduplicateHobbies(employee);
+            validateHobbiesNotAlreadyPresent(managed, employee.getHobbies());
             managed.setName(employee.getName());
             managed.setGender(employee.getGender());
             managed.setDateOfBirth(employee.getDateOfBirth());
             managed.setPhoneNumber(employee.getPhoneNumber());
-            managed.getHobbies().clear();
-            if (employee.getHobbies() != null) {
-                for (Hobby h : employee.getHobbies()) {
-                    if (h != null) {
-                        h.setEmployee(managed);
-                        hobbyDao.save(h);
-                        managed.getHobbies().add(h);
-                    }
-                }
-            }
+            mergeHobbiesFromRequest(managed, employee.getHobbies(), em, hobbyDao);
             empDao.update(managed);
             tx.commit();
             LOG.info("Updated employee id={}", id);
@@ -152,12 +172,12 @@ public class EmployeeService {
     //</editor-fold>
 
     //<editor-fold desc="Private Methods">
-    private Optional<Employee> findEmployeeWithHobbies(EntityManager em, Long id) {
-        if (id == null) return Optional.empty();
-        List<Employee> list = em.createQuery(
-            "SELECT DISTINCT e FROM Employee e LEFT JOIN FETCH e.hobbies WHERE e.id = :id", Employee.class)
-            .setParameter("id", id).getResultList();
-        return list.isEmpty() ? Optional.empty() : Optional.of(list.get(0));
+    private long countEmployeesFromDb(EntityManager em) {
+        Query q = em.createNativeQuery("SELECT COUNT(*) FROM EMP_HOB.EMPLOYEE");
+        Number n = (Number) q.getSingleResult();
+        long count = n == null ? 0L : n.longValue();
+        LOG.trace("DB row count for EMPLOYEE: {}", count);
+        return count;
     }
 
     private void normalize(Employee e) {
@@ -168,6 +188,100 @@ public class EmployeeService {
         if (e.getPhoneNumber() == null) e.setPhoneNumber("");
     }
 
+    private void deduplicateHobbies(Employee e) {
+        if (e == null || e.getHobbies() == null) return;
+        List<Hobby> list = e.getHobbies();
+        Set<String> seen = new LinkedHashSet<>();
+        list.removeIf(h -> {
+            if (h == null || h.getName() == null) return true;
+            if (!seen.add(h.getName().trim().toLowerCase())) return true;
+            return false;
+        });
+    }
+
+    private void applyHobbiesFromRequest(Employee managed, List<Hobby> requested, EntityManager em, GenericDao<Hobby, Long> hobbyDao) {
+        List<Hobby> existing = new ArrayList<>(managed.getHobbies());
+        Map<String, Hobby> existingByName = new LinkedHashMap<>();
+        for (Hobby h : existing) {
+            if (h != null && h.getName() != null) {
+                existingByName.putIfAbsent(h.getName().trim().toLowerCase(), h);
+            }
+        }
+        Set<String> requestedNames = new LinkedHashSet<>();
+        if (requested != null) {
+            for (Hobby h : requested) {
+                if (h != null && h.getName() != null && !h.getName().isBlank()) {
+                    requestedNames.add(h.getName().trim().toLowerCase());
+                }
+            }
+        }
+        for (Hobby h : existing) {
+            if (h == null || h.getName() == null) continue;
+            if (!requestedNames.contains(h.getName().trim().toLowerCase())) {
+                em.remove(em.contains(h) ? h : em.merge(h));
+            }
+        }
+        managed.getHobbies().clear();
+        if (requested == null) return;
+        for (Hobby h : requested) {
+            if (h == null || h.getName() == null || h.getName().isBlank()) continue;
+            String key = h.getName().trim().toLowerCase();
+            Hobby toAdd = existingByName.get(key);
+            if (toAdd != null) {
+                managed.getHobbies().add(toAdd);
+            } else {
+                h.setEmployee(managed);
+                hobbyDao.save(h);
+                managed.getHobbies().add(h);
+            }
+        }
+    }
+
+    private void validateHobbiesNotAlreadyPresent(Employee managed, List<Hobby> requested) {
+        if (managed.getHobbies() == null || requested == null) return;
+        Set<String> existingNames = new LinkedHashSet<>();
+        for (Hobby h : managed.getHobbies()) {
+            if (h != null && h.getName() != null && !h.getName().isBlank()) {
+                existingNames.add(h.getName().trim().toLowerCase());
+            }
+        }
+        Set<String> reportedKeys = new LinkedHashSet<>();
+        List<String> alreadyPresent = new ArrayList<>();
+        for (Hobby h : requested) {
+            if (h == null || h.getName() == null || h.getName().isBlank()) continue;
+            String key = h.getName().trim().toLowerCase();
+            if (existingNames.contains(key) && reportedKeys.add(key)) {
+                alreadyPresent.add(h.getName().trim());
+            }
+        }
+        if (!alreadyPresent.isEmpty()) {
+            LOG.warn("PUT rejected: hobbies already exist for employee: {}", alreadyPresent);
+            throw new ValidationException(
+                    "Hobby already exists for this employee. Do not add a value that already exists: " + String.join(", ", alreadyPresent),
+                    List.of("hobbies: " + String.join(", ", alreadyPresent) + " already exist for this employee"));
+        }
+    }
+
+    private void mergeHobbiesFromRequest(Employee managed, List<Hobby> requested, EntityManager em, GenericDao<Hobby, Long> hobbyDao) {
+        if (managed.getHobbies() == null) return;
+        Map<String, Hobby> existingByName = new LinkedHashMap<>();
+        for (Hobby h : managed.getHobbies()) {
+            if (h != null && h.getName() != null) {
+                existingByName.putIfAbsent(h.getName().trim().toLowerCase(), h);
+            }
+        }
+        if (requested == null) return;
+        for (Hobby h : requested) {
+            if (h == null || h.getName() == null || h.getName().isBlank()) continue;
+            String key = h.getName().trim().toLowerCase();
+            if (existingByName.containsKey(key)) continue;
+            h.setEmployee(managed);
+            hobbyDao.save(h);
+            managed.getHobbies().add(h);
+            existingByName.put(key, h);
+        }
+    }
+
     private void linkHobbiesTo(Employee source, Employee target) {
         if (source.getHobbies() == null) return;
         for (Hobby h : source.getHobbies()) {
@@ -175,15 +289,11 @@ public class EmployeeService {
         }
     }
 
-    private EmployeeDto toSummaryDto(Employee e) {
-        return e == null ? null : new EmployeeDto(e.getId(), e.getName(), e.getGender(), e.getDateOfBirth(), e.getPhoneNumber(), null);
-    }
-
-    private EmployeeDto toDetailsDto(Employee e) {
+    private EmployeeDto toDetailsDto(Employee e, List<Hobby> hobbies) {
         if (e == null) return null;
         List<HobbyDto> hobbyList = new ArrayList<>();
-        if (e.getHobbies() != null) {
-            for (Hobby h : e.getHobbies()) {
+        if (hobbies != null) {
+            for (Hobby h : hobbies) {
                 if (h != null) {
                     hobbyList.add(new HobbyDto(h.getId(), h.getName()));
                 }

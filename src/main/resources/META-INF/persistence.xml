@@ -8,13 +8,19 @@
     <provider>org.hibernate.jpa.HibernatePersistenceProvider</provider>
     <!-- JNDI DataSource from Tomcat (connection pool from Milestone 2) -->
     <non-jta-data-source>java:comp/env/jdbc/EmployeeDB</non-jta-data-source>
-    <class>model.Employee</class>
-    <class>model.Hobby</class>
+    <class>Entity.Employee</class>
+    <class>Entity.Hobby</class>
 
     <properties>
       <property name="hibernate.dialect" value="org.hibernate.dialect.DB2Dialect"/>
-      <!-- update: create/update schema (e.g. join table); use validate in production if schema is managed separately -->
-      <property name="hibernate.hbm2ddl.auto" value="update"/>
+      <!-- none: no schema tool runs at all (no validate, no update). Prevents any Hibernate DDL/ALTER on DB2 (REORG_PENDING). -->
+      <property name="hibernate.hbm2ddl.auto" value="none"/>
+      <!-- JPA 3: explicitly disable schema generation so nothing runs DDL -->
+      <property name="jakarta.persistence.schema-generation.database.action" value="none"/>
+      <!-- SQL logging: set to false in production -->
+      <property name="hibernate.show_sql" value="true"/>
+      <property name="hibernate.format_sql" value="true"/>
+      <property name="hibernate.use_sql_comments" value="true"/>
     </properties>
   </persistence-unit>
 </persistence>

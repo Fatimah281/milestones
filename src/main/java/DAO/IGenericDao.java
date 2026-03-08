@@ -13,6 +13,8 @@ public interface IGenericDao<T, ID> {
 
     List<T> findAll(int offset, int limit);
 
+    long count();
+
     T update(T entity);
 
     boolean deleteById(ID id);

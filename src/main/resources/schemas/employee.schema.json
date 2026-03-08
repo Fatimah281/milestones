@@ -6,11 +6,18 @@
   "properties": {
     "id": { "type": "integer", "minimum": 1 },
     "name": { "type": "string", "minLength": 1, "maxLength": 255 },
-    "gender": { "type": ["string", "null"], "maxLength": 50 },
-    "dateOfBirth": { "type": ["string", "null"], "maxLength": 20 },
-    "phoneNumber": { "type": ["string", "null"], "maxLength": 50 },
+    "gender": { "type": ["string", "null"], "enum": ["F", "M", null], "maxLength": 1 },
+    "dateOfBirth": { "type": ["string", "null"], "format": "date", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "maxLength": 10 },
+    "phoneNumber": {
+      "type": ["string", "null"],
+      "minLength": 9,
+      "maxLength": 12,
+      "pattern": "^(\\+?9665[0-9]{8}|05[0-9]{8}|5[0-9]{8})$",
+      "description": "SA mobile: 05XXXXXXXX (10), 5XXXXXXXX (9), +9665XXXXXXX (12), 9665XXXXXXX (11). Digits only; optional + for international. Must start with 5 (carrier)."
+    },
     "hobbies": {
       "type": "array",
+      "maxItems": 10,
       "items": {
         "oneOf": [
           { "$ref": "#/definitions/hobby" },

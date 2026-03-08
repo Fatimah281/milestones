@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Optional;
 //</editor-fold>
 
-@WebServlet(urlPatterns = {"/api/v4/employees/*", "/api/v4/employee/*"}, loadOnStartup = 1)
+@WebServlet(urlPatterns = {"/api/v4/employees/*"}, loadOnStartup = 1)
 public class EmployeeServlet extends HttpServlet {
 
     //<editor-fold desc="Constants">
@@ -53,19 +53,33 @@ public class EmployeeServlet extends HttpServlet {
     //<editor-fold desc="GET - Read">
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        resp.setContentType(JSON);
         LOG.debug("GET {}", req.getRequestURI());
         try {
             String path = req.getPathInfo();
             if (path == null || path.equals("/")) {
                 int offset = getIntParam(req, "offset", 0);
                 int limit = getIntParam(req, "limit", 5);
+                if (offset < 0) {
+                    LOG.warn("Invalid offset: {}", offset);
+                    resp.setContentType(JSON);
+                    sendApiError(resp, HttpServletResponse.SC_BAD_REQUEST, "Bad Request", "Offset must be 0 or greater.");
+                    return;
+                }
                 if (limit < 1) limit = 1;
                 if (limit > 20) limit = 20;
                 LOG.trace("List employees offset={}, limit={}", offset, limit);
-                List<?> list = service.findAll(offset, limit);
+                var paged = service.findAll(offset, limit);
+                long totalCount = paged.getTotalCount();
+                if (totalCount > 0 && offset >= totalCount) {
+                    LOG.warn("Offset {} exceeds total count {}", offset, totalCount);
+                    resp.setContentType(JSON);
+                    sendApiError(resp, HttpServletResponse.SC_BAD_REQUEST, "Bad Request",
+                            "Offset exceeds available data. Total count is " + totalCount + ". Maximum valid offset is " + (totalCount - 1) + ".");
+                    return;
+                }
+                resp.setContentType(JSON);
                 resp.setStatus(HttpServletResponse.SC_OK);
-                resp.getWriter().write(JsonUtil.toJson(list));
+                resp.getWriter().write(JsonUtil.toJson(paged));
                 return;
             }
             Optional<Long> id = parseId(path);
@@ -77,9 +91,10 @@ public class EmployeeServlet extends HttpServlet {
             Optional<?> one = service.findById(id.get());
             if (one.isEmpty()) {
                 LOG.error("GET employee not found: id={}", id.get());
-                sendApiError(resp, HttpServletResponse.SC_NOT_FOUND, "Not Found", "Employee not found");
+                resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
+            resp.setContentType(JSON);
             resp.setStatus(HttpServletResponse.SC_OK);
             resp.getWriter().write(JsonUtil.toJson(one.get()));
         } catch (Exception e) {
@@ -130,7 +145,7 @@ public class EmployeeServlet extends HttpServlet {
             Employee body = JsonUtil.fromJsonWithEmployeeValidation(req.getReader(), Employee.class);
             Optional<Employee> updated = service.update(id.get(), body);
             if (updated.isEmpty()) {
-                sendApiError(resp, HttpServletResponse.SC_NOT_FOUND, "Not Found", "Employee not found");
+                resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
             resp.setStatus(HttpServletResponse.SC_NO_CONTENT);
@@ -160,7 +175,7 @@ public class EmployeeServlet extends HttpServlet {
                 return;
             }
             if (!service.deleteById(id.get())) {
-                sendApiError(resp, HttpServletResponse.SC_NOT_FOUND, "Not Found", "Employee not found");
+                resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
             resp.setStatus(HttpServletResponse.SC_NO_CONTENT);
@@ -220,7 +235,7 @@ public class EmployeeServlet extends HttpServlet {
             return;
         }
         if (e instanceof ResourceNotFoundException) {
-            sendApiError(resp, HttpServletResponse.SC_NOT_FOUND, "Not Found", e.getMessage());
+            resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
             return;
         }
         if (e.getCause() instanceof JsonProcessingException) {
@@ -233,7 +248,7 @@ public class EmployeeServlet extends HttpServlet {
     }
 
     private static String location(HttpServletRequest req, long id) {
-        return req.getScheme() + "://" + req.getServerName() + ":" + req.getServerPort() + req.getContextPath() + "/api/v4/employee/" + id;
+        return req.getScheme() + "://" + req.getServerName() + ":" + req.getServerPort() + req.getContextPath() + "/api/v4/employees/" + id;
     }
     //</editor-fold>
 }

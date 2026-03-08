@@ -20,7 +20,7 @@ public class Employee {
     @Column(name = "NAME", nullable = false, length = 255)
     private String name;
 
-    @Column(name = "GENDER", length = 50)
+    @Column(name = "GENDER", length = 1)
     private String gender;
 
     @Column(name = "DATE_OF_BIRTH", length = 20)
@@ -29,7 +29,8 @@ public class Employee {
     @Column(name = "PHONE_NUMBER", length = 50)
     private String phoneNumber;
 
-    @OneToMany(mappedBy = "employee", fetch = FetchType.EAGER, cascade = { CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE, CascadeType.DETACH, CascadeType.REFRESH })
+    /** LAZY to avoid JOIN on EMPLOYEE (DB2 -668/57007); hobbies loaded by separate query in service. */
+    @OneToMany(mappedBy = "employee", fetch = FetchType.LAZY, cascade = { CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE, CascadeType.DETACH, CascadeType.REFRESH })
     @JsonManagedReference
     private List<Hobby> hobbies = new ArrayList<>();
     //</editor-fold>
@@ -90,7 +91,7 @@ public class Employee {
     }
 
     public List<Hobby> getHobbies() {
-        return hobbies;
+        return hobbies != null ? hobbies : new ArrayList<>();
     }
 
     public void setHobbies(List<Hobby> hobbies) {

@@ -54,6 +54,12 @@ public class GenericDao<T, ID> implements IGenericDao<T, ID> {
     }
 
     @Override
+    public long count() {
+        return em.createQuery("SELECT COUNT(e) FROM " + entityClass.getSimpleName() + " e", Long.class)
+            .getSingleResult();
+    }
+
+    @Override
     public T update(T entity) {
         LOG.trace("Updating entity: {}", entityClass.getSimpleName());
         return em.merge(entity);
